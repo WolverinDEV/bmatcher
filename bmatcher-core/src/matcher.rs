@@ -1,3 +1,4 @@
+use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::{Atom, BinaryPattern, JumpType, MatchTarget, ReadWidth};
@@ -17,18 +18,12 @@ pub struct BinaryMatcher<'a> {
 
 impl<'a> BinaryMatcher<'a> {
     pub fn new(pattern: &'a dyn BinaryPattern, target: &'a dyn MatchTarget) -> Self {
-        let mut save_stack = Vec::new();
-        save_stack.resize(8, 0);
-
-        let mut cursor_stack = Vec::new();
-        cursor_stack.resize(8, 0);
-
         Self {
             pattern,
             target,
 
-            save_stack,
-            cursor_stack,
+            save_stack: vec![0; 8],
+            cursor_stack: vec![0; 8],
 
             match_offset: 0,
         }
@@ -42,11 +37,7 @@ impl<'a> BinaryMatcher<'a> {
             match atoms[atom_cursor] {
                 Atom::ByteSequence { seq_start, seq_end } => {
                     let expected_bytes = &self.pattern.byte_sequence()[seq_start..seq_end];
-                    let Some(actual_bytes) =
-                        self.target.subrange(data_cursor, expected_bytes.len())
-                    else {
-                        return None;
-                    };
+                    let actual_bytes = self.target.subrange(data_cursor, expected_bytes.len())?;
 
                     if expected_bytes != actual_bytes {
                         return None;
@@ -104,16 +95,11 @@ impl<'a> BinaryMatcher<'a> {
                         self.save_stack.truncate(save_stack_size);
                         self.cursor_stack.truncate(cursor_stack_size);
 
-                        if let Some(data_cursor) = self.match_atoms(
+                        self.match_atoms(
                             data_cursor,
                             &atoms[atom_cursor + 1 + left_len
                                 ..atom_cursor + 1 + left_len + right_len],
-                        ) {
-                            data_cursor
-                        } else {
-                            /* non of the branches matched */
-                            return None;
-                        }
+                        )?
                     };
 
                     atom_cursor += 1 + left_len + right_len;
@@ -122,30 +108,18 @@ impl<'a> BinaryMatcher<'a> {
                 Atom::Jump(mode) => {
                     data_cursor = match mode {
                         JumpType::RelByte => {
-                            let Some(value) = self.target.subrange(data_cursor, 1) else {
-                                return None;
-                            };
-
+                            let value = self.target.subrange(data_cursor, 1)?;
                             (data_cursor + 1).wrapping_add_signed(value[0] as i8 as isize)
                         }
                         JumpType::RelDWord => {
-                            let Some(value) = self.target.subrange(data_cursor, 4) else {
-                                return None;
-                            };
-
+                            let value = self.target.subrange(data_cursor, 4)?;
                             let value = i32::from_le_bytes(value.try_into().unwrap());
                             (data_cursor + 4).wrapping_add_signed(value as isize)
                         }
                         JumpType::AbsQWord => {
-                            let Some(value) = self.target.subrange(data_cursor, 8) else {
-                                return None;
-                            };
+                            let value = self.target.subrange(data_cursor, 8)?;
                             let value = u64::from_le_bytes(value.try_into().unwrap());
-                            let Some(value) = self.target.translate_absolute_address(value) else {
-                                return None;
-                            };
-
-                            value
+                            self.target.translate_absolute_address(value)?
                         }
                     };
                     atom_cursor += 1;
@@ -154,24 +128,15 @@ impl<'a> BinaryMatcher<'a> {
                 Atom::Read(width) => {
                     let (value, width) = match width {
                         ReadWidth::Byte => {
-                            let Some(value) = self.target.subrange(data_cursor, 1) else {
-                                return None;
-                            };
-
+                            let value = self.target.subrange(data_cursor, 1)?;
                             (value[0] as u32, 1)
                         }
                         ReadWidth::Word => {
-                            let Some(value) = self.target.subrange(data_cursor, 2) else {
-                                return None;
-                            };
-
+                            let value = self.target.subrange(data_cursor, 2)?;
                             (u16::from_le_bytes(value.try_into().unwrap()) as u32, 2)
                         }
                         ReadWidth::DWord => {
-                            let Some(value) = self.target.subrange(data_cursor, 4) else {
-                                return None;
-                            };
-
+                            let value = self.target.subrange(data_cursor, 4)?;
                             (u32::from_le_bytes(value.try_into().unwrap()), 4)
                         }
                     };

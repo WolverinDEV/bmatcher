@@ -68,13 +68,13 @@ impl<'a> BorrowedBinaryPattern<'a> {
     }
 }
 
-impl<'a> BinaryPattern for BorrowedBinaryPattern<'a> {
+impl BinaryPattern for BorrowedBinaryPattern<'_> {
     fn atoms(&self) -> &[Atom] {
-        &self.atoms
+        self.atoms
     }
 
     fn byte_sequence(&self) -> &[u8] {
-        &self.byte_sequence
+        self.byte_sequence
     }
 }
 

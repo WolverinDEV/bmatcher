@@ -93,8 +93,7 @@ impl Optimizer {
             let is_across_branch = self
                 .branches
                 .iter()
-                .find(|branch| index + 1 == branch.right_index || index + 1 == branch.end_index)
-                .is_some();
+                .any(|branch| index + 1 == branch.right_index || index + 1 == branch.end_index);
             if is_across_branch {
                 index += 1;
                 continue;

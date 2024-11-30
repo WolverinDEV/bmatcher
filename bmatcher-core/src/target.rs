@@ -44,9 +44,7 @@ impl MatchTarget for &[u8] {
 
     fn translate_absolute_address(&self, address: u64) -> Option<usize> {
         let own_address = self.as_ptr() as u64;
-        if own_address < address {
-            None
-        } else if address >= own_address + self.len() as u64 {
+        if own_address < address || address >= own_address + self.len() as u64 {
             None
         } else {
             Some((address - own_address) as usize)
