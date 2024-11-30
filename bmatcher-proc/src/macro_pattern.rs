@@ -1,9 +1,25 @@
-use std::io::{self, Cursor, Write};
+use std::io::{
+    self,
+    Cursor,
+    Write,
+};
 
-use bmatcher_core::{compiler, Atom, BinaryPattern, JumpType, ReadWidth};
+use bmatcher_core::{
+    compiler,
+    Atom,
+    BinaryPattern,
+    JumpType,
+    ReadWidth,
+};
 use proc_macro2::TokenStream;
 use quote::ToTokens;
-use syn::{parse2, Error, Expr, LitStr, Result};
+use syn::{
+    parse2,
+    Error,
+    Expr,
+    LitStr,
+    Result,
+};
 
 fn emit_atom(output: &mut dyn Write, atom: &Atom) -> io::Result<()> {
     match atom {

@@ -1,7 +1,15 @@
-use alloc::vec;
-use alloc::vec::Vec;
+use alloc::{
+    vec,
+    vec::Vec,
+};
 
-use crate::{Atom, BinaryPattern, JumpType, MatchTarget, ReadWidth};
+use crate::{
+    Atom,
+    BinaryPattern,
+    JumpType,
+    MatchTarget,
+    ReadWidth,
+};
 
 /// The `BinaryMatcher` is responsible for searching a [BinaryPattern] within a [MatchTarget].
 ///
@@ -190,9 +198,11 @@ impl<'a> BinaryMatcher<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::{compiler::parse_pattern, BinaryPattern};
-
     use super::BinaryMatcher;
+    use crate::{
+        compiler::parse_pattern,
+        BinaryPattern,
+    };
 
     const DATA: &[u8] = &[
         0xCA, 0x70, 0x11, 0xB5, 0xA, 0x9D, 0x91, 0x83, 0xC4, 0x5A, 0xFC, 0xC7, 0x31, 0x26, 0xC3,

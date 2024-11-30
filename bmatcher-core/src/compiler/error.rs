@@ -1,4 +1,7 @@
-use core::{fmt::Debug, ops::Range};
+use core::{
+    fmt::Debug,
+    ops::Range,
+};
 
 /// A PositionedError representing an error that is associated with a specific position in the given pattern.
 #[derive(Debug, PartialEq)]

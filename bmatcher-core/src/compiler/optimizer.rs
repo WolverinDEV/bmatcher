@@ -1,7 +1,10 @@
 use alloc::vec::Vec;
 
 use crate::{
-    pattern::{BinaryPattern, OwnedBinaryPattern},
+    pattern::{
+        BinaryPattern,
+        OwnedBinaryPattern,
+    },
     Atom,
 };
 
@@ -235,8 +238,13 @@ pub fn optimize_pattern(pattern: &dyn BinaryPattern) -> OwnedBinaryPattern {
 
 #[cfg(test)]
 mod test {
-    use crate::pattern::BinaryPattern;
-    use crate::{pattern::OwnedBinaryPattern, Atom};
+    use crate::{
+        pattern::{
+            BinaryPattern,
+            OwnedBinaryPattern,
+        },
+        Atom,
+    };
 
     fn test_optimize(input: &[Atom], expected: &[Atom]) {
         println!("Testing: {:?}", input);

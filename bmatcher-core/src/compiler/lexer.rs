@@ -1,5 +1,7 @@
-use core::ops::Range;
-use core::str::CharIndices;
+use core::{
+    ops::Range,
+    str::CharIndices,
+};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum Token<'a> {
@@ -187,7 +189,10 @@ impl<'a> Lexer<'a> {
 mod test {
     use std::iter;
 
-    use super::{Lexer, Token};
+    use super::{
+        Lexer,
+        Token,
+    };
 
     fn execut_tests(test_cases: &[(&str, &[Token<'_>])]) {
         for (input, expected_output) in test_cases {

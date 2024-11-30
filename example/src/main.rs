@@ -1,4 +1,7 @@
-use bmatcher::{pattern, BinaryMatcher};
+use bmatcher::{
+    pattern,
+    BinaryMatcher,
+};
 
 fn main() {
     let data: &[u8] = &[0xE8, 0x00, 0x00, 0x00, 0x00, 0x48, 0x89, 0x04, 0x24, 0xE9];
