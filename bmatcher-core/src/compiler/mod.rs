@@ -1,3 +1,6 @@
+mod error;
+pub use error::PositionedError;
+
 mod lexer;
 use lexer::{Lexer, Token};
 

@@ -2,9 +2,9 @@ use core::num::ParseIntError;
 
 use alloc::vec::Vec;
 
-use crate::{error::PositionedError, pattern::OwnedBinaryPattern, Atom, JumpType, ReadWidth};
+use crate::{pattern::OwnedBinaryPattern, Atom, JumpType, ReadWidth};
 
-use super::{Lexer, Token};
+use super::{Lexer, PositionedError, Token};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ParseError {
@@ -363,7 +363,10 @@ pub fn parse_pattern(pattern: &str) -> Result<OwnedBinaryPattern, PositionedErro
 
 #[cfg(test)]
 mod test {
-    use crate::{compiler::parser::ParseError, error::PositionedError, Atom, JumpType};
+    use crate::{
+        compiler::{parser::ParseError, PositionedError},
+        Atom, JumpType,
+    };
 
     use super::PatternParser;
     use crate::pattern::BinaryPattern;

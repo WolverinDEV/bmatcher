@@ -9,9 +9,6 @@ pub use atom::{Atom, JumpType, ReadWidth};
 mod target;
 pub use target::MatchTarget;
 
-mod error;
-pub use error::PositionedError;
-
 mod matcher;
 pub use matcher::BinaryMatcher;
 

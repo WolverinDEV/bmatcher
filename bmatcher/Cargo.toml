@@ -5,6 +5,8 @@ version.workspace = true
 edition.workspace = true
 description.workspace = true
 license-file.workspace = true
+repository.workspace = true
+readme = "../README.MD"
 
 [dependencies]
 bmatcher-core = { version = "0.1.0", path = "../bmatcher-core" }
