@@ -3,7 +3,8 @@ name = "bmatcher"
 authors.workspace = true
 version.workspace = true
 edition.workspace = true
-
+description.workspace = true
+license-file.workspace = true
 
 [dependencies]
 bmatcher-core = { version = "0.1.0", path = "../bmatcher-core" }

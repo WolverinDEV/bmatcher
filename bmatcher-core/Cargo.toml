@@ -3,6 +3,7 @@ name = "bmatcher-core"
 authors.workspace = true
 version.workspace = true
 edition.workspace = true
-
+description.workspace = true
+license-file.workspace = true
 
 [dependencies]

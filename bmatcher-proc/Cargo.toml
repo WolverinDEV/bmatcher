@@ -2,6 +2,8 @@
 name = "bmatcher-proc"
 authors.workspace = true
 version.workspace = true
+description.workspace = true
+license-file.workspace = true
 edition.workspace = true
 
 [lib]
