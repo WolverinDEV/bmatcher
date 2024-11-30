@@ -1,0 +1,8 @@
+[package]
+name = "bmatcher-core"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+
+
+[dependencies]

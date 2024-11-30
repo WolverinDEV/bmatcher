@@ -1,0 +1,65 @@
+name: Rust
+
+on:
+  push:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  CI: 1
+
+jobs:
+  fmt:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          # Required for some of the arguments
+          toolchain: nightly
+          components: rustfmt,clippy
+      - name: rustfmt
+        run: cargo fmt --all -- --check
+      - name: clippy
+        run: cargo clippy --all-targets --all-features
+
+  tests:
+    runs-on: windows-latest
+    needs: fmt
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Show version
+        run: |
+          rustup show
+          cargo --version
+          rustc --version
+      - name: Build
+        run: cargo build --all-targets
+      - name: Test
+        run: cargo test -- --nocapture
+        env:
+          RUST_LOG: trace
+  deploy:
+    runs-on: windows-latest
+    needs: tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: katyo/publish-crates@v2
+        with:
+          path: './bmatcher-core/'
+          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          dry-run: ${{ github.ref != 'refs/heads/master' }}
+      - uses: katyo/publish-crates@v2
+        with:
+          path: './bmatcher-proc/'
+          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          dry-run: ${{ github.ref != 'refs/heads/master' }}
+      - uses: katyo/publish-crates@v2
+        with:
+          path: './bmatcher/'
+          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          dry-run: ${{ github.ref != 'refs/heads/master' }}

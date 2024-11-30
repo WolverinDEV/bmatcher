@@ -1,0 +1,11 @@
+[workspace]
+resolver = "2"
+members = ["bmatcher", "bmatcher-core", "bmatcher-proc", "example"]
+
+[workspace.package]
+version = "0.1.0"
+authors = ["Markus Hadenfeldt <mhadenfeldt@did.science>"]
+edition = "2021"
+description = "bmatcher is a flexible and efficient binary pattern matching library designed to help you search and match binary data."
+repository = "https://github.com/WolverinDEV/bmatcher"
+license-file = "LICENSE"

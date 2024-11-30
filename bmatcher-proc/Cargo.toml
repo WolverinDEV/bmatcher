@@ -1,0 +1,14 @@
+[package]
+name = "bmatcher-proc"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+bmatcher-core = { version = "0.1.0", path = "../bmatcher-core" }
+quote = "1"
+proc-macro2 = "1.0"
+syn = { version = "2.0", features = ["full"] }
