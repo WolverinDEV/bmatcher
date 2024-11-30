@@ -7,7 +7,7 @@ mod macro_pattern;
 
 /// Parse a binary pattern and generate an instance of [BorrowedBinaryPattern] at compile time.  
 /// # Example
-/// ```rust,compile_fail
+/// ```rust,ignore
 /// static MY_PATTERN: &dyn BinaryPattern = &pattern!("01 02 ? 03 [4]");
 /// ```
 #[proc_macro]
