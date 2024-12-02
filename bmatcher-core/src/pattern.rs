@@ -51,7 +51,7 @@ pub trait BinaryPattern: Send + Sync + Debug {
 
 /// An implementation of the [BinaryPattern] interface that borrows the [Atom]s and byte sequence array.
 ///
-/// This struct is primarily used alongside the [pattern!] macro to generate patterns at runtime.
+/// This struct is primarily used alongside the [bmatcher_proc::pattern] macro to generate patterns at runtime.
 #[derive(Debug, Clone, Copy)]
 pub struct BorrowedBinaryPattern<'a> {
     atoms: &'a [Atom],
@@ -79,7 +79,7 @@ impl BinaryPattern for BorrowedBinaryPattern<'_> {
 
 /// An implementation of the [BinaryPattern] interface that allocates a `Vec` for the [Atom]s and the byte sequence.
 ///
-/// This struct is primarily used with [compiler::parse] to parse binary patterns at runtime.
+/// This struct is primarily used with [crate::compiler::parse_pattern] to parse binary patterns at runtime.
 #[derive(Debug, Default)]
 pub struct OwnedBinaryPattern {
     atoms: Vec<Atom>,

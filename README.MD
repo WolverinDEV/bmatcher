@@ -26,6 +26,10 @@ To use `bmatcher`, add it as a dependency in your `Cargo.toml`:
 bmatcher = "0.1"
 ```
 
+## Creating a pattern
+
+An exhausive overview of the pattern syntax and operads can be found [here](./GRAMMA.MD).
+
 ## Basic Usage
 
 Here's a simple example demonstrating how to use bmatcher to match a call signature binary pattern:
@@ -36,7 +40,7 @@ let pattern = pattern!("
     /*
      * call my_function
      * $ = follow 4 byte relative jump
-     * ' = save cursor position to the matched stack)
+     * ' = save cursor position to the matched stack
      */
     E8 $ { ' }
 

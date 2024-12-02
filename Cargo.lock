@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "bmatcher"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "bmatcher-core",
  "bmatcher-proc",
@@ -12,11 +12,11 @@ dependencies = [
 
 [[package]]
 name = "bmatcher-core"
-version = "0.1.1"
+version = "0.1.2"
 
 [[package]]
 name = "bmatcher-proc"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "bmatcher-core",
  "proc-macro2",

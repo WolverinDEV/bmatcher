@@ -5,7 +5,9 @@ extern crate proc_macro;
 
 mod macro_pattern;
 
-/// Parse a binary pattern and generate an instance of [BorrowedBinaryPattern] at compile time.  
+/// Parse a binary pattern and generate an instance of [bmatcher::BorrowedBinaryPattern] at compile time.  
+/// An exhausive overview of the pattern syntax and operads can be found here: [bpattern::doc_pattern_syntax].
+///
 /// # Example
 /// ```rust,ignore
 /// static MY_PATTERN: &dyn BinaryPattern = &pattern!("01 02 ? 03 [4]");
