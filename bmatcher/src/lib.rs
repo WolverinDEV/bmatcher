@@ -14,5 +14,5 @@ A guide on how to create signatures can be found here: <https://wiki.alliedmods.
 pub use bmatcher_core::*;
 pub use bmatcher_proc::pattern;
 
-#[doc = include_str!("../../GRAMMA.MD")]
+#[doc = include_str!("../GRAMMA.MD")]
 pub fn doc_pattern_syntax() {}

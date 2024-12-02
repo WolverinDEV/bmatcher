@@ -28,7 +28,7 @@ bmatcher = "0.1"
 
 ## Creating a pattern
 
-An exhausive overview of the pattern syntax and operads can be found [here](./GRAMMA.MD).
+An exhausive overview of the pattern syntax and operads can be found [here](./bmatcher/GRAMMA.MD).
 
 ## Basic Usage
 
