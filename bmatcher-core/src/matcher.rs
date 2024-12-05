@@ -44,7 +44,8 @@ impl<'a> BinaryMatcher<'a> {
         while atom_cursor < atoms.len() {
             match atoms[atom_cursor] {
                 Atom::ByteSequence { seq_start, seq_end } => {
-                    let expected_bytes = &self.pattern.byte_sequence()[seq_start..seq_end];
+                    let expected_bytes =
+                        &self.pattern.byte_sequence()[seq_start as usize..seq_end as usize];
                     let actual_bytes = self.target.subrange(data_cursor, expected_bytes.len())?;
 
                     if expected_bytes != actual_bytes {
@@ -56,7 +57,7 @@ impl<'a> BinaryMatcher<'a> {
                 }
                 Atom::WildcardFixed(length) => {
                     atom_cursor += 1;
-                    data_cursor += length;
+                    data_cursor += length as usize;
                 }
                 Atom::WildcardRange { min, max } => {
                     let save_stack_size = self.save_stack.len();
@@ -65,8 +66,8 @@ impl<'a> BinaryMatcher<'a> {
                     for offset in min..=max {
                         self.save_stack.truncate(save_stack_size);
                         self.cursor_stack.truncate(cursor_stack_size);
-                        if let Some(data_cursor) =
-                            self.match_atoms(data_cursor + offset, &atoms[atom_cursor + 1..])
+                        if let Some(data_cursor) = self
+                            .match_atoms(data_cursor + offset as usize, &atoms[atom_cursor + 1..])
                         {
                             /* match :) */
                             return Some(data_cursor);
@@ -81,7 +82,7 @@ impl<'a> BinaryMatcher<'a> {
                     atom_cursor += 1;
                 }
                 Atom::CursorPop { advance } => {
-                    data_cursor = self.cursor_stack.pop().unwrap() + advance;
+                    data_cursor = self.cursor_stack.pop().unwrap() + advance as usize;
                     atom_cursor += 1;
                 }
 
@@ -94,7 +95,7 @@ impl<'a> BinaryMatcher<'a> {
 
                     data_cursor = if let Some(data_cursor) = self.match_atoms(
                         data_cursor,
-                        &atoms[atom_cursor + 1..atom_cursor + 1 + left_len],
+                        &atoms[atom_cursor + 1..atom_cursor + 1 + left_len as usize],
                     ) {
                         /* match for left hand side */
                         data_cursor
@@ -105,12 +106,12 @@ impl<'a> BinaryMatcher<'a> {
 
                         self.match_atoms(
                             data_cursor,
-                            &atoms[atom_cursor + 1 + left_len
-                                ..atom_cursor + 1 + left_len + right_len],
+                            &atoms[atom_cursor + 1 + left_len as usize
+                                ..atom_cursor + 1 + left_len as usize + right_len as usize],
                         )?
                     };
 
-                    atom_cursor += 1 + left_len + right_len;
+                    atom_cursor += 1 + left_len as usize + right_len as usize;
                 }
 
                 Atom::Jump(mode) => {

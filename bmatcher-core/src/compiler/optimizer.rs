@@ -41,8 +41,8 @@ impl Optimizer {
 
             branches.push(Branch {
                 atom_index: index,
-                right_index: index + 1 + *left_len,
-                end_index: index + 1 + *left_len + *right_len,
+                right_index: index + 1 + *left_len as usize,
+                end_index: index + 1 + *left_len as usize + *right_len as usize,
             });
         }
 
@@ -83,8 +83,8 @@ impl Optimizer {
     fn fixup_branches(&mut self) {
         for branch in self.branches.iter() {
             self.atoms[branch.atom_index] = Atom::Branch {
-                left_len: branch.right_index - branch.atom_index - 1,
-                right_len: branch.end_index - branch.right_index,
+                left_len: (branch.right_index - branch.atom_index - 1) as u16,
+                right_len: (branch.end_index - branch.right_index) as u16,
             };
         }
     }

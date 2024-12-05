@@ -16,12 +16,12 @@ pub enum ReadWidth {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Atom {
     /// Match a sequence of bytes from the sequence array.
-    ByteSequence { seq_start: usize, seq_end: usize },
+    ByteSequence { seq_start: u16, seq_end: u16 },
 
     /// Skip a fixed number of bytes.
-    WildcardFixed(usize),
+    WildcardFixed(u16),
     /// Skip a variable number of bytes.
-    WildcardRange { min: usize, max: usize },
+    WildcardRange { min: u16, max: u16 },
 
     /// Jump to the relative / absolute based on the binary data the current cursor location.
     Jump(JumpType),
@@ -34,16 +34,16 @@ pub enum Atom {
     /// and then continue where we left of.
     Branch {
         /// Length of the left subpattern
-        left_len: usize,
+        left_len: u16,
 
         /// Length of the right subpattern
-        right_len: usize,
+        right_len: u16,
     },
 
     /// Push the cursor location to the cursor stack
     CursorPush,
     /// Pop the cursor location from the cursor stack and advance by X bytes
-    CursorPop { advance: usize },
+    CursorPop { advance: u16 },
 
     /// Save the current cursor position to the save stack
     SaveCursor,

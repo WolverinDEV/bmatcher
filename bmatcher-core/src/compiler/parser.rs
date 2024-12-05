@@ -26,6 +26,8 @@ pub enum ParseError {
 
     RangeBoundInvalid(ParseIntError),
     RangeEndMustBeGraterThenStart,
+
+    SequenceTooLarge,
 }
 
 pub struct PatternParser<'a> {
@@ -120,10 +122,10 @@ impl<'a> PatternParser<'a> {
             ));
         };
 
+        let token_range = self.lexer.token_range();
         let bytes_start = self.byte_sequence.len();
         let mut values = value.char_indices();
         while let Some((upper_index, upper)) = values.next() {
-            let token_range = self.lexer.token_range();
             let Some((lower_index, lower)) = values.next() else {
                 /* byte sequence must always be a multiple of 2 */
                 return Err(PositionedError::new(
@@ -155,9 +157,16 @@ impl<'a> PatternParser<'a> {
         }
 
         let bytes_end = self.byte_sequence.len();
+        if bytes_start > u16::MAX as usize || bytes_end > u16::MAX as usize {
+            return Err(PositionedError::new(
+                token_range,
+                ParseError::SequenceTooLarge,
+            ));
+        }
+
         self.atoms.push(Atom::ByteSequence {
-            seq_start: bytes_start,
-            seq_end: bytes_end,
+            seq_start: bytes_start as u16,
+            seq_end: bytes_end as u16,
         });
 
         Ok(())
@@ -270,8 +279,15 @@ impl<'a> PatternParser<'a> {
             }
 
             let left_branch_len = self.atoms.len() - branch_atom_index - 1;
+            if left_branch_len > u16::MAX as usize {
+                return Err(PositionedError::new(
+                    self.lexer.token_range(),
+                    ParseError::SequenceTooLarge,
+                ));
+            }
+
             if let Atom::Branch { left_len, .. } = &mut self.atoms[branch_atom_index] {
-                *left_len = left_branch_len;
+                *left_len = left_branch_len as u16;
             } else {
                 unreachable!("atom should be a branch");
             }
@@ -286,7 +302,15 @@ impl<'a> PatternParser<'a> {
                 right_len,
             } = &mut self.atoms[branch_atom_index]
             {
-                *right_len = atom_count - *left_len - branch_atom_index - 1;
+                let right_branch_len = atom_count - *left_len as usize - branch_atom_index - 1;
+                if right_branch_len > u16::MAX as usize {
+                    return Err(PositionedError::new(
+                        self.lexer.token_range(),
+                        ParseError::SequenceTooLarge,
+                    ));
+                }
+
+                *right_len = right_branch_len as u16;
             } else {
                 unreachable!("atom should be a branch");
             }
@@ -310,7 +334,7 @@ impl<'a> PatternParser<'a> {
             ));
         };
 
-        let range_start = range_start.parse::<usize>().map_err(|err| {
+        let range_start = range_start.parse::<u16>().map_err(|err| {
             PositionedError::new(self.lexer.token_range(), ParseError::RangeBoundInvalid(err))
         })?;
 
@@ -327,7 +351,7 @@ impl<'a> PatternParser<'a> {
                     ));
                 };
 
-                let range_end = range_end.parse::<usize>().map_err(|err| {
+                let range_end = range_end.parse::<u16>().map_err(|err| {
                     PositionedError::new(
                         self.lexer.token_range(),
                         ParseError::RangeBoundInvalid(err),
