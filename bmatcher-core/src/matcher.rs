@@ -1,20 +1,22 @@
-use alloc::{
-    vec,
-    vec::Vec,
-};
-
 use crate::{
     Atom,
     BinaryPattern,
+    HeapStack,
     JumpType,
     MatchTarget,
     ReadWidth,
+    Stack,
+    StaticStack,
 };
 
 /// The `BinaryMatcher` is responsible for searching a [BinaryPattern] within a [MatchTarget].
 ///
 /// Use [`BinaryMatcher::next_match`] to iterate through matches of the specified pattern.
-pub struct BinaryMatcher<'a> {
+pub struct BinaryMatcher<
+    'a,
+    S: Stack<u32> = StaticStack<0x10, u32>,
+    C: Stack<usize> = StaticStack<0x10, usize>,
+> {
     pattern_atoms: &'a [Atom],
     pattern_byte_sequence: &'a [u8],
 
@@ -22,20 +24,55 @@ pub struct BinaryMatcher<'a> {
 
     match_offset: usize,
 
-    save_stack: Vec<u32>,
-    cursor_stack: Vec<usize>,
+    save_stack: S,
+    cursor_stack: C,
 }
 
 impl<'a> BinaryMatcher<'a> {
+    /// Create a new BinaryMatcher instance with a statically allocated stack.
+    /// The default stack size is 0x10 for the save and cursor stack.
     pub fn new(pattern: &'a dyn BinaryPattern, target: &'a dyn MatchTarget) -> Self {
+        Self::new_with_stack(
+            pattern,
+            target,
+            StaticStack::<0x10, u32>::new(),
+            StaticStack::<0x10, usize>::new(),
+        )
+    }
+
+    /// Create a new BinaryMatcher instance with a heap allocated save and cursor stack
+    pub fn new_heap_stack(
+        pattern: &'a dyn BinaryPattern,
+        target: &'a dyn MatchTarget,
+    ) -> BinaryMatcher<'a, HeapStack<u32>, HeapStack<usize>> {
+        BinaryMatcher::new_with_stack(
+            pattern,
+            target,
+            HeapStack::<u32>::new(),
+            HeapStack::<usize>::new(),
+        )
+    }
+}
+
+impl<'a, S: Stack<u32>, C: Stack<usize>> BinaryMatcher<'a, S, C> {
+    /// Create a new binary matcher and supply the save and cursor stacks on your own
+    pub fn new_with_stack(
+        pattern: &'a dyn BinaryPattern,
+        target: &'a dyn MatchTarget,
+        mut save_stack: S,
+        cursor_stack: C,
+    ) -> Self {
+        save_stack.truncate(0);
+        save_stack.push_value(0x00);
+
         Self {
             pattern_atoms: pattern.atoms(),
             pattern_byte_sequence: pattern.byte_sequence(),
 
             target,
 
-            save_stack: vec![0; 8],
-            cursor_stack: vec![0; 8],
+            save_stack,
+            cursor_stack,
 
             match_offset: 0,
         }
@@ -86,11 +123,20 @@ impl<'a> BinaryMatcher<'a> {
                 }
 
                 Atom::CursorPush => {
-                    self.cursor_stack.push(data_cursor);
+                    if !self.cursor_stack.push_value(data_cursor) {
+                        /* TODO: Return error instead of abort search */
+                        return None;
+                    }
+
                     atom_cursor += 1;
                 }
                 Atom::CursorPop { advance } => {
-                    data_cursor = self.cursor_stack.pop().unwrap() + advance as usize;
+                    let Some(value) = self.cursor_stack.pop_value() else {
+                        /* TODO: Return error instead of abort search */
+                        return None;
+                    };
+
+                    data_cursor = value + advance as usize;
                     atom_cursor += 1;
                 }
 
@@ -157,18 +203,27 @@ impl<'a> BinaryMatcher<'a> {
                             (u32::from_le_bytes(value.try_into().unwrap()), 4)
                         }
                     };
-                    self.save_stack.push(value);
+                    if !self.save_stack.push_value(value) {
+                        /* TODO: Return error instead of abort search */
+                        return None;
+                    }
 
                     atom_cursor += 1;
                     data_cursor += width;
                 }
 
                 Atom::SaveCursor => {
-                    self.save_stack.push(data_cursor as u32);
+                    if !self.save_stack.push_value(data_cursor as u32) {
+                        /* TODO: Return error instead of abort search */
+                        return None;
+                    }
                     atom_cursor += 1;
                 }
                 Atom::SaveConstant(value) => {
-                    self.save_stack.push(value);
+                    if !self.save_stack.push_value(value) {
+                        /* TODO: Return error instead of abort search */
+                        return None;
+                    }
                     atom_cursor += 1;
                 }
             }
@@ -194,8 +249,10 @@ impl<'a> BinaryMatcher<'a> {
             }
 
             self.match_offset = match_offset + 1;
-            self.save_stack[0] = match_offset as u32;
-            return Some(&self.save_stack);
+
+            let save_stack = self.save_stack.stack_mut();
+            save_stack[0] = match_offset as u32;
+            return Some(save_stack);
         }
 
         None

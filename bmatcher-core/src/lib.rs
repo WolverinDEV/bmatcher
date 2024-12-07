@@ -16,6 +16,13 @@ pub use target::MatchTarget;
 mod matcher;
 pub use matcher::BinaryMatcher;
 
+mod stack;
+pub use stack::{
+    HeapStack,
+    Stack,
+    StaticStack,
+};
+
 mod pattern;
 pub use pattern::{
     BinaryPattern,
