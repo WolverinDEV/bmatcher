@@ -48,7 +48,11 @@ impl<'a> BinaryMatcher<'a> {
                         &self.pattern.byte_sequence()[seq_start as usize..seq_end as usize];
                     let actual_bytes = self.target.subrange(data_cursor, expected_bytes.len())?;
 
-                    if expected_bytes != actual_bytes {
+                    if expected_bytes
+                        .iter()
+                        .zip(actual_bytes.iter())
+                        .any(|(expected, data)| *expected != *data)
+                    {
                         return None;
                     }
 
