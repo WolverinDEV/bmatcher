@@ -9,5 +9,5 @@ repository.workspace = true
 readme = "../README.MD"
 
 [dependencies]
-bmatcher-core = { version = "0.1.0", path = "../bmatcher-core" }
-bmatcher-proc = { version = "0.1.0", path = "../bmatcher-proc" }
+bmatcher-core = { version = "0.2", path = "../bmatcher-core" }
+bmatcher-proc = { version = "0.2", path = "../bmatcher-proc" }
