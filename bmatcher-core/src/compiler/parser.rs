@@ -194,8 +194,8 @@ impl<'a> PatternParser<'a> {
         } else {
             /* normal byte sequence */
             self.atoms.push(Atom::ByteSequence {
-                seq_start: bytes_start as u16,
-                seq_end: bytes_end as u16,
+                seq_start: bytes_start,
+                seq_end: bytes_end,
             });
         }
 

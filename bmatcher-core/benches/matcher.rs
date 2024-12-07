@@ -39,6 +39,8 @@ pub fn simple_binary_pattern(instance: &mut Criterion) {
                     bencher.iter(|| {
                         let mut matcher =
                             BinaryMatcher::new(black_box(&pattern), black_box(&buffer));
+
+                        #[allow(clippy::never_loop)]
                         while let Some(_match) = matcher.next_match() {
                             panic!("pattern should not match");
                         }
@@ -69,6 +71,8 @@ pub fn simple_binary_pattern(instance: &mut Criterion) {
                     bencher.iter(|| {
                         let mut matcher =
                             BinaryMatcher::new(black_box(&pattern), black_box(&buffer));
+
+                        #[allow(clippy::never_loop)]
                         while let Some(_match) = matcher.next_match() {
                             panic!("pattern should not match");
                         }

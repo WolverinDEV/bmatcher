@@ -4,6 +4,10 @@ pub trait Stack<T> {
     fn new() -> Self;
 
     fn len(&self) -> usize;
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     fn reserve(&mut self, _size: usize) {}
     fn truncate(&mut self, size: usize);
 
