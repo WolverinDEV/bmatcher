@@ -3,7 +3,7 @@ resolver = "2"
 members = ["bmatcher", "bmatcher-core", "bmatcher-proc", "example"]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Markus Hadenfeldt <mhadenfeldt@did.science>"]
 edition = "2021"
 description = "bmatcher is a flexible and efficient binary pattern matching library designed to help you search and match binary data."

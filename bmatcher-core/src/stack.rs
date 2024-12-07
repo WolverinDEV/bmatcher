@@ -55,8 +55,8 @@ impl<const N: usize, T: Default + Copy> Stack<T> for StaticStack<N, T> {
 
     fn pop_value(&mut self) -> Option<T> {
         if self.length > 0 {
-            let value = self.stack[self.length];
             self.length -= 1;
+            let value = self.stack[self.length];
             Some(value)
         } else {
             None
