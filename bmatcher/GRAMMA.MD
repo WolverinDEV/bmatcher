@@ -22,6 +22,18 @@ Spaces between the hexadecimal values are optional. The following example is equ
 FFDE0123
 ```
 
+## Masked Binary Data (`<hex> & <hex>`)
+
+The **Masked Match Binary Data** operator is extends the Binary Data Operator. It performs a byte-by-byte comparison of the input with the specified hexadecimal values under the given mask (binary and). Each byte and mask entry must be written in hexadecimal format and padded to two digits.
+
+The following example searches for the hexadecimal sequence `0xFF 0xEE` wit hthe mask `0xFF 0x0F` in the target:
+
+```pattern
+FFEE & FF0F
+```
+
+In opposition to the Binary Data operator, spaces are not allowed in the binary and the mask data.
+
 ## Byte Wildcard (`?`)
 
 The Byte Wildcard operator (`?`) matches any byte value, serving as the opposite of the Match Binary Data operator.
