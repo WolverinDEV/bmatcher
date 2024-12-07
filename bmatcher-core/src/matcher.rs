@@ -15,7 +15,9 @@ use crate::{
 ///
 /// Use [`BinaryMatcher::next_match`] to iterate through matches of the specified pattern.
 pub struct BinaryMatcher<'a> {
-    pattern: &'a dyn BinaryPattern,
+    pattern_atoms: &'a [Atom],
+    pattern_byte_sequence: &'a [u8],
+
     target: &'a dyn MatchTarget,
 
     match_offset: usize,
@@ -27,7 +29,9 @@ pub struct BinaryMatcher<'a> {
 impl<'a> BinaryMatcher<'a> {
     pub fn new(pattern: &'a dyn BinaryPattern, target: &'a dyn MatchTarget) -> Self {
         Self {
-            pattern,
+            pattern_atoms: pattern.atoms(),
+            pattern_byte_sequence: pattern.byte_sequence(),
+
             target,
 
             save_stack: vec![0; 8],
@@ -45,7 +49,7 @@ impl<'a> BinaryMatcher<'a> {
             match atoms[atom_cursor] {
                 Atom::ByteSequence { seq_start, seq_end } => {
                     let expected_bytes =
-                        &self.pattern.byte_sequence()[seq_start as usize..seq_end as usize];
+                        &self.pattern_byte_sequence[seq_start as usize..seq_end as usize];
                     let actual_bytes = self.target.subrange(data_cursor, expected_bytes.len())?;
 
                     if expected_bytes
@@ -185,10 +189,7 @@ impl<'a> BinaryMatcher<'a> {
             self.save_stack.truncate(1);
             self.cursor_stack.truncate(0);
 
-            if self
-                .match_atoms(match_offset, self.pattern.atoms())
-                .is_none()
-            {
+            if self.match_atoms(match_offset, self.pattern_atoms).is_none() {
                 continue;
             }
 

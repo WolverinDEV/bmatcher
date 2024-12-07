@@ -6,6 +6,9 @@ edition.workspace = true
 description.workspace = true
 license-file.workspace = true
 
+[lib]
+bench = false
+
 [dependencies]
 
 [dev-dependencies]
