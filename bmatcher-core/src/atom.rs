@@ -18,6 +18,19 @@ pub enum Atom {
     /// Match a sequence of bytes from the sequence array.
     ByteSequence { seq_start: u16, seq_end: u16 },
 
+    /// Match a sequence of bytes from the sequence array
+    /// using a custom bitmask.
+    ByteSequenceMasked {
+        /// Start of the byte sequence in the sequence array.
+        seq_start: u16,
+
+        /// Start of the byte mask in the sequence array.
+        mask_start: u16,
+
+        /// Number of bytes to match
+        len: u16,
+    },
+
     /// Skip a fixed number of bytes.
     WildcardFixed(u16),
     /// Skip a variable number of bytes.

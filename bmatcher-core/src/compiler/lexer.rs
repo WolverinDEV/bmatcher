@@ -11,6 +11,9 @@ pub enum Token<'a> {
     /// A one byte wildcard token: "?"
     Whildcard,
 
+    /// A mask token: "&"
+    Mask,
+
     /// A range open token: "["
     RangeOpen,
     /// A range token: "-"
@@ -73,6 +76,7 @@ impl<'a> Lexer<'a> {
     fn char_to_token(&self, value: char) -> Option<Token<'a>> {
         Some(match value {
             '?' => Token::Whildcard,
+            '&' => Token::Mask,
 
             '{' => Token::BlockOpen,
             '}' => Token::BlockClose,

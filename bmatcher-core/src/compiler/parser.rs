@@ -18,6 +18,8 @@ pub enum ParseError {
     UnexpectedToken,
     UnexpectedEnd,
 
+    MaskByteLenMismatch,
+
     HexValueInvalid,
     HexValueIncomplete,
 
@@ -114,7 +116,7 @@ impl<'a> PatternParser<'a> {
         Ok(false)
     }
 
-    fn parse_byte_sequence(&mut self) -> Result<(), PositionedError<ParseError>> {
+    fn parse_bytes(&mut self) -> Result<(u16, u16), PositionedError<ParseError>> {
         let Token::Text(value) = self.pop_token()? else {
             return Err(PositionedError::new(
                 self.lexer.token_range(),
@@ -164,10 +166,38 @@ impl<'a> PatternParser<'a> {
             ));
         }
 
-        self.atoms.push(Atom::ByteSequence {
-            seq_start: bytes_start as u16,
-            seq_end: bytes_end as u16,
-        });
+        Ok((bytes_start as u16, bytes_end as u16))
+    }
+
+    fn parse_byte_sequence(&mut self) -> Result<(), PositionedError<ParseError>> {
+        let (bytes_start, bytes_end) = self.parse_bytes()?;
+
+        if let Some(Token::Mask) = self.peek_token() {
+            /* masked byte sequence */
+            let _ = self.pop_token()?;
+
+            let (mask_start, mask_end) = self.parse_bytes()?;
+            let mask_length = mask_end - mask_start;
+            let bytes_length = bytes_end - bytes_start;
+            if mask_length != bytes_length {
+                return Err(PositionedError::new(
+                    self.lexer.token_range(),
+                    ParseError::MaskByteLenMismatch,
+                ));
+            }
+
+            self.atoms.push(Atom::ByteSequenceMasked {
+                seq_start: bytes_start,
+                mask_start,
+                len: bytes_length,
+            });
+        } else {
+            /* normal byte sequence */
+            self.atoms.push(Atom::ByteSequence {
+                seq_start: bytes_start as u16,
+                seq_end: bytes_end as u16,
+            });
+        }
 
         Ok(())
     }
@@ -464,6 +494,46 @@ mod test {
             assert_eq!(
                 &result,
                 &PositionedError::new(0..2, ParseError::HexValueInvalid)
+            );
+        }
+    }
+
+    #[test]
+    fn test_byte_sequence_mask() {
+        {
+            let parser = PatternParser::new("FF & F0");
+            let result = parser.parse().unwrap();
+            assert_eq!(
+                result.atoms(),
+                &[Atom::ByteSequenceMasked {
+                    seq_start: 0,
+                    mask_start: 1,
+                    len: 1
+                }]
+            );
+            assert_eq!(result.byte_sequence(), &[0xFF, 0xF0]);
+        }
+
+        {
+            let parser = PatternParser::new("FFEE & F0F0");
+            let result = parser.parse().unwrap();
+            assert_eq!(
+                result.atoms(),
+                &[Atom::ByteSequenceMasked {
+                    seq_start: 0,
+                    mask_start: 2,
+                    len: 2
+                }]
+            );
+            assert_eq!(result.byte_sequence(), &[0xFF, 0xEE, 0xF0, 0xF0]);
+        }
+
+        {
+            let parser = PatternParser::new("FFFF & FF");
+            let result = parser.parse().unwrap_err();
+            assert_eq!(
+                &result,
+                &PositionedError::new(7..9, ParseError::MaskByteLenMismatch)
             );
         }
     }

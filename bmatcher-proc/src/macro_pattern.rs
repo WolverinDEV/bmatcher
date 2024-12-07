@@ -31,6 +31,18 @@ fn emit_atom(output: &mut dyn Write, atom: &Atom) -> io::Result<()> {
             )?;
         }
 
+        Atom::ByteSequenceMasked {
+            seq_start,
+            mask_start,
+            len,
+        } => {
+            write!(
+                output,
+                "bmatcher::Atom::ByteSequenceMasked{{ seq_start: 0x{:X}, mask_start: 0x{:X}, len: 0x{:X} }}",
+                seq_start, mask_start, len
+            )?;
+        }
+
         Atom::WildcardFixed(value) => {
             write!(output, "bmatcher::Atom::WildcardFixed(0x{:X})", value)?;
         }

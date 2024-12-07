@@ -100,6 +100,38 @@ impl<'a, S: Stack<u32>, C: Stack<usize>> BinaryMatcher<'a, S, C> {
                     atom_cursor += 1;
                     data_cursor += expected_bytes.len();
                 }
+                Atom::ByteSequenceMasked {
+                    seq_start,
+                    mask_start,
+                    len,
+                } => {
+                    let target_bytes = &self.pattern_byte_sequence
+                        [seq_start as usize..seq_start as usize + len as usize];
+
+                    let target_mask = &self.pattern_byte_sequence
+                        [mask_start as usize..mask_start as usize + len as usize];
+
+                    let actual_bytes = self.target.subrange(data_cursor, target_mask.len())?;
+
+                    let target_bytes = target_bytes
+                        .iter()
+                        .zip(target_mask)
+                        .map(|(value, mask)| *value & *mask);
+                    let actual_bytes = actual_bytes
+                        .iter()
+                        .zip(target_mask)
+                        .map(|(value, mask)| *value & *mask);
+
+                    if target_bytes
+                        .zip(actual_bytes)
+                        .any(|(expected, data)| expected != data)
+                    {
+                        return None;
+                    }
+
+                    atom_cursor += 1;
+                    data_cursor += len as usize;
+                }
                 Atom::WildcardFixed(length) => {
                     atom_cursor += 1;
                     data_cursor += length as usize;
@@ -293,6 +325,11 @@ mod test {
         test_single("B7 69 ' 2D", DATA, Some(&[0x41, 0x43]));
         test_single("' B7 69 ' 2D", DATA, Some(&[0x41, 0x41, 0x43]));
         test_single("B7 69 3D", DATA, None);
+    }
+
+    #[test]
+    fn test_binary_mask() {
+        test_single("B7682D & FFFEFF", DATA, Some(&[0x41]));
     }
 
     #[test]
