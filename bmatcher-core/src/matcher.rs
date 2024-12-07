@@ -181,19 +181,19 @@ impl<'a> BinaryMatcher<'a> {
     ///    Subsequent elements can be pushed using the `Atom::SaveCursor` atom or the `'` command within the binary pattern.
     /// - `None` if no further matches are available.
     pub fn next_match(&mut self) -> Option<&[u32]> {
-        while self.match_offset < self.target.match_length() {
-            let offset = self.match_offset;
-            self.match_offset += 1;
-
+        for match_offset in self.match_offset..self.target.match_length() {
             self.save_stack.truncate(1);
-            self.save_stack[0] = offset as u32;
-
             self.cursor_stack.truncate(0);
 
-            if self.match_atoms(offset, self.pattern.atoms()).is_none() {
+            if self
+                .match_atoms(match_offset, self.pattern.atoms())
+                .is_none()
+            {
                 continue;
             }
 
+            self.match_offset = match_offset + 1;
+            self.save_stack[0] = match_offset as u32;
             return Some(&self.save_stack);
         }
 
