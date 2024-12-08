@@ -1,5 +1,6 @@
 use core::ops::{
     Bound,
+    Range,
     RangeBounds,
 };
 
@@ -13,6 +14,18 @@ use crate::{
     Stack,
     StaticStack,
 };
+
+/// Hinting where the pattern might be matching the target
+enum MatchHint {
+    /// A match hint could not be generated
+    Unsupported,
+
+    /// The pattern will not match the target
+    NoMatches,
+
+    /// The pattern may match the target at the given offset
+    MaybeMatch(usize),
+}
 
 /// The `BinaryMatcher` is responsible for searching a [BinaryPattern] within a [MatchTarget].
 ///
@@ -199,7 +212,7 @@ impl<'a, S: Stack<u32>, C: Stack<usize>> BinaryMatcher<'a, S, C> {
                             return Some(data_cursor);
                         }
                     }
-                    
+
                     self.save_stack.truncate(save_stack_size);
                     self.cursor_stack.truncate(cursor_stack_size);
                     if let Some(data_cursor) = {
@@ -282,6 +295,66 @@ impl<'a, S: Stack<u32>, C: Stack<usize>> BinaryMatcher<'a, S, C> {
         Some(data_cursor)
     }
 
+    /// Generate a match hint for a proper search based of the first matching bytes
+    /// given by the pattern. This algorithm assumes that thet MatchTarget is in continuous memory.
+    fn next_match_hint(&self, range: Range<usize>) -> MatchHint {
+        let mut fs_buffer = [0u8; 0x10];
+        let mut fs_buffer_len = 0;
+        for atom in self.pattern_atoms {
+            match atom {
+                Atom::ByteSequence { seq_start, seq_end } => {
+                    let seq_start = *seq_start as usize;
+                    let seq_end = *seq_end as usize;
+
+                    let copy_length = (seq_end - seq_start).min(fs_buffer.len() - fs_buffer_len);
+                    fs_buffer[fs_buffer_len..fs_buffer_len + copy_length].copy_from_slice(
+                        &self.pattern_byte_sequence[seq_start..seq_start + copy_length],
+                    );
+                    fs_buffer_len += copy_length;
+                    if fs_buffer_len >= fs_buffer.len() {
+                        /* quick search buffer filled */
+                        break;
+                    }
+                }
+                Atom::CursorPush => continue,
+                Atom::SaveConstant(_) => continue,
+                Atom::SaveCursor => continue,
+                Atom::Read(_) => continue,
+                _ => break,
+            }
+        }
+
+        if fs_buffer_len == 0 {
+            /* can not berform a fuzzy search as we do not start with any binary data */
+            return MatchHint::Unsupported;
+        }
+
+        let Some(target_buffer) = self.target.subrange(range.start, range.end - range.start) else {
+            /* memory is not continuous */
+            return MatchHint::Unsupported;
+        };
+
+        Self::fuzzy_search(&fs_buffer[0..fs_buffer_len], target_buffer)
+            .map_or(MatchHint::NoMatches, |offset| {
+                MatchHint::MaybeMatch(range.start + offset)
+            })
+    }
+
+    fn fuzzy_search(needle: &[u8], haystack: &[u8]) -> Option<usize> {
+        for offset in 0..(haystack.len() - needle.len()) {
+            let is_match = needle
+                .iter()
+                .zip(&haystack[offset..offset + needle.len()])
+                .all(|(a, b)| *a == *b);
+
+            if is_match {
+                return Some(offset);
+            }
+        }
+
+        None
+    }
+
     /// Finds the next match for the associated [BinaryPattern] within the [MatchTarget].
     ///
     /// # Returns
@@ -296,24 +369,57 @@ impl<'a, S: Stack<u32>, C: Stack<usize>> BinaryMatcher<'a, S, C> {
     /// Finds the next match for the associated [BinaryPattern] within the [MatchTarget] within the given range.
     /// The current match offset will be clamped into the given range.
     pub fn next_match_within<R: RangeBounds<usize>>(&mut self, range: R) -> Option<&[u32]> {
-        let range_min = match range.start_bound() {
+        let range_start = match range.start_bound() {
             Bound::Excluded(value) => *value + 1,
             Bound::Included(value) => *value,
             Bound::Unbounded => 0,
         };
 
-        let range_max = match range.end_bound() {
+        let range_end = match range.end_bound() {
             Bound::Excluded(value) => *value,
             Bound::Included(value) => *value + 1,
             Bound::Unbounded => self.target.match_length(),
         };
-        if range_min >= range_max {
+        if range_start >= range_end {
             /* nothing to match against */
             return None;
         }
 
-        let match_offset = self.match_offset.clamp(range_min, range_max);
-        for match_offset in match_offset..range_max {
+        let mut match_offset = self.match_offset.clamp(range_start, range_end);
+        while match_offset < range_end {
+            match self.next_match_hint(match_offset..range_end) {
+                MatchHint::Unsupported => {
+                    /* fall back to matching against every position */
+                    return self.next_match_within_loop(match_offset..range_end);
+                }
+                MatchHint::NoMatches => {
+                    /* no more matches */
+                    return None;
+                }
+                MatchHint::MaybeMatch(hint_offset) => {
+                    /* check if the given offset is actually a match */
+                    self.save_stack.truncate(1);
+                    self.cursor_stack.truncate(0);
+
+                    if self.match_atoms(hint_offset, self.pattern_atoms).is_some() {
+                        self.match_offset = hint_offset + 1;
+
+                        let save_stack = self.save_stack.stack_mut();
+                        save_stack[0] = hint_offset as u32;
+                        return Some(save_stack);
+                    }
+
+                    match_offset = hint_offset + 1;
+                }
+            }
+        }
+
+        self.match_offset = range_end;
+        None
+    }
+
+    fn next_match_within_loop(&mut self, range: Range<usize>) -> Option<&[u32]> {
+        for match_offset in range.clone() {
             self.save_stack.truncate(1);
             self.cursor_stack.truncate(0);
 
@@ -328,7 +434,7 @@ impl<'a, S: Stack<u32>, C: Stack<usize>> BinaryMatcher<'a, S, C> {
             return Some(save_stack);
         }
 
-        self.match_offset = range_max;
+        self.match_offset = range.end;
         None
     }
 }
