@@ -1,8 +1,6 @@
 use alloc::vec::Vec;
 
 pub trait Stack<T> {
-    fn new() -> Self;
-
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool {
         self.len() == 0
@@ -17,19 +15,45 @@ pub trait Stack<T> {
     fn stack_mut(&mut self) -> &mut [T];
 }
 
+impl<T, I: Stack<T>> Stack<T> for &mut I {
+    fn len(&self) -> usize {
+        I::len(self)
+    }
+
+    fn reserve(&mut self, size: usize) {
+        I::reserve(self, size)
+    }
+    fn truncate(&mut self, size: usize) {
+        I::truncate(self, size)
+    }
+
+    fn push_value(&mut self, value: T) -> bool {
+        I::push_value(self, value)
+    }
+    fn pop_value(&mut self) -> Option<T> {
+        I::pop_value(self)
+    }
+
+    fn stack_mut(&mut self) -> &mut [T] {
+        I::stack_mut(self)
+    }
+}
+
 pub struct StaticStack<const N: usize, T> {
     stack: [T; N],
     length: usize,
 }
 
-impl<const N: usize, T: Default + Copy> Stack<T> for StaticStack<N, T> {
-    fn new() -> Self {
+impl<const N: usize, T: Default + Copy> StaticStack<N, T> {
+    pub fn new() -> Self {
         Self {
             stack: [Default::default(); N],
             length: 0,
         }
     }
+}
 
+impl<const N: usize, T: Copy> Stack<T> for StaticStack<N, T> {
     fn len(&self) -> usize {
         self.length
     }
@@ -68,11 +92,13 @@ pub struct HeapStack<T> {
     stack: Vec<T>,
 }
 
-impl<T> Stack<T> for HeapStack<T> {
-    fn new() -> Self {
+impl<T> HeapStack<T> {
+    pub fn new() -> Self {
         Self { stack: Vec::new() }
     }
+}
 
+impl<T> Stack<T> for HeapStack<T> {
     fn len(&self) -> usize {
         self.stack.len()
     }
