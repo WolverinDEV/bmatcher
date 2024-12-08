@@ -8,7 +8,7 @@ Below, all available operators are defined and explained.
 
 ## Binary Data (`<hex>`)
 
-The **Match Binary Data** operator is the most fundamental operator. It performs a byte-by-byte comparison of the input with the specified hexadecimal values. Each byte must be written in hexadecimal format and padded to two digits.
+The **Binary Data** operator is the most fundamental operator. It performs a byte-by-byte comparison of the input with the specified hexadecimal values. Each byte must be written in hexadecimal format and padded to two digits.
 
 The following example searches for the hexadecimal sequence `0xFF 0xDE 0x01 0x23` in the target:
 
@@ -24,7 +24,7 @@ FFDE0123
 
 ## Masked Binary Data (`<hex> & <hex>`)
 
-The **Masked Match Binary Data** operator is extends the Binary Data Operator. It performs a byte-by-byte comparison of the input with the specified hexadecimal values under the given mask (binary and). Each byte and mask entry must be written in hexadecimal format and padded to two digits.
+The **Masked Binary Data** operator is extends the Binary Data Operator. It performs a byte-by-byte comparison of the input with the specified hexadecimal values under the given mask (binary and). Each byte and mask entry must be written in hexadecimal format and padded to two digits.
 
 The following example searches for the hexadecimal sequence `0xFF 0xEE` wit hthe mask `0xFF 0x0F` in the target:
 
@@ -36,7 +36,7 @@ In opposition to the Binary Data operator, spaces are not allowed in the binary 
 
 ## Byte Wildcard (`?`)
 
-The Byte Wildcard operator (`?`) matches any byte value, serving as the opposite of the Match Binary Data operator.
+The Byte Wildcard operator (`?`) matches any byte value, serving as the opposite of the Binary Data operator.
 For example, the following pattern matches any 32-bit relative call instruction (`E8 rel32`) followed by a return (`C3`) in x86 assembly:
 
 ```pattern
@@ -112,7 +112,7 @@ The following pattern matches a function call (`E8`), resolves a 4-byte relative
 E8 $ { ' 54 }
 ```
 
-## OR / Branch (`(<pattern a> | <pattern b> [ | <pattern n> ])`)
+## Branch (`(<pattern a> | <pattern b> [ | <pattern n> ])`)
 
 The **Branch** operator enables matching against one of multiple specified patterns. It allows for flexibility in matching sequences where alternatives are valid. This operator is especially useful when dealing with multiple valid opcode variations or alternative byte sequences.
 
@@ -122,6 +122,14 @@ The following pattern matches any of these sequences: 0xFF 0x01 0xFF, 0xFF 0x03 
 ```pattern
 FF ( 01 | 03 | FF ) FF
 ```
+
+### Branch Behaviour
+
+The Branch operator processes alternatives from left to right:
+
+- The matcher attempts to match each branch sequentially.
+- When a branch matches, the matcher proceeds to evaluate the rest of the pattern.
+- If the rest of the pattern fails to match, the matcher will backtrack and test the next branch.
 
 ## Read Value (`r1` / `r2` / `r4`)
 
@@ -141,9 +149,10 @@ The following ABNF specifies the general syntax:
 ```abnf
 match_string := *(operand " ")
 
-operand := operand_bin / operand_wildcard_byte / operand_wildcard_range / operand_jump / operand_read / operand_cursor_save / operand_branch
+operand := operand_bin / operand_bin_masked / operand_wildcard_byte / operand_wildcard_range / operand_jump / operand_read / operand_cursor_save / operand_branch
 
 operand_bin := 1*(2HEXDIG)
+operand_bin_masked := operand_bin "&" operand_bin
 operand_wildcard_byte := "?"
 operand_wildcard_range := "[" (wildcard_fixed / wildcard_range)  "]"
 operand_jump := "%" / "$" / "@" [jump_target_matcher]

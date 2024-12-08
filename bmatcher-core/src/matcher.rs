@@ -1,3 +1,8 @@
+use core::ops::{
+    Bound,
+    RangeBounds,
+};
+
 use crate::{
     Atom,
     BinaryPattern,
@@ -41,7 +46,7 @@ impl<'a> BinaryMatcher<'a> {
     }
 
     /// Create a new BinaryMatcher instance with a heap allocated save and cursor stack
-    pub fn new_heap_stack(
+    pub fn new_with_heap_stack(
         pattern: &'a dyn BinaryPattern,
         target: &'a dyn MatchTarget,
     ) -> BinaryMatcher<'a, HeapStack<u32>, HeapStack<usize>> {
@@ -176,28 +181,41 @@ impl<'a, S: Stack<u32>, C: Stack<usize>> BinaryMatcher<'a, S, C> {
                     left_len,
                     right_len,
                 } => {
+                    let left_len = left_len as usize;
+                    let right_len = right_len as usize;
+
                     let save_stack_size = self.save_stack.len();
                     let cursor_stack_size = self.cursor_stack.len();
 
-                    data_cursor = if let Some(data_cursor) = self.match_atoms(
-                        data_cursor,
-                        &atoms[atom_cursor + 1..atom_cursor + 1 + left_len as usize],
-                    ) {
-                        /* match for left hand side */
-                        data_cursor
-                    } else {
-                        /* restore stack state and try right hand side */
-                        self.save_stack.truncate(save_stack_size);
-                        self.cursor_stack.truncate(cursor_stack_size);
-
+                    let remaining_atoms = &atoms[atom_cursor + 1 + left_len + right_len..];
+                    if let Some(data_cursor) = {
                         self.match_atoms(
                             data_cursor,
-                            &atoms[atom_cursor + 1 + left_len as usize
-                                ..atom_cursor + 1 + left_len as usize + right_len as usize],
-                        )?
-                    };
+                            &atoms[atom_cursor + 1..atom_cursor + 1 + left_len],
+                        )
+                    } {
+                        /* Left site match. Match the rest */
+                        if let Some(data_cursor) = self.match_atoms(data_cursor, remaining_atoms) {
+                            return Some(data_cursor);
+                        }
+                    }
+                    
+                    self.save_stack.truncate(save_stack_size);
+                    self.cursor_stack.truncate(cursor_stack_size);
+                    if let Some(data_cursor) = {
+                        self.match_atoms(
+                            data_cursor,
+                            &atoms[atom_cursor + left_len + 1
+                                ..atom_cursor + left_len + right_len + 1],
+                        )
+                    } {
+                        /* Right site match. Match the rest */
+                        if let Some(data_cursor) = self.match_atoms(data_cursor, remaining_atoms) {
+                            return Some(data_cursor);
+                        }
+                    }
 
-                    atom_cursor += 1 + left_len as usize + right_len as usize;
+                    return None;
                 }
 
                 Atom::Jump(mode) => {
@@ -272,7 +290,30 @@ impl<'a, S: Stack<u32>, C: Stack<usize>> BinaryMatcher<'a, S, C> {
     ///    Subsequent elements can be pushed using the `Atom::SaveCursor` atom or the `'` command within the binary pattern.
     /// - `None` if no further matches are available.
     pub fn next_match(&mut self) -> Option<&[u32]> {
-        for match_offset in self.match_offset..self.target.match_length() {
+        self.next_match_within(..)
+    }
+
+    /// Finds the next match for the associated [BinaryPattern] within the [MatchTarget] within the given range.
+    /// The current match offset will be clamped into the given range.
+    pub fn next_match_within<R: RangeBounds<usize>>(&mut self, range: R) -> Option<&[u32]> {
+        let range_min = match range.start_bound() {
+            Bound::Excluded(value) => *value + 1,
+            Bound::Included(value) => *value,
+            Bound::Unbounded => 0,
+        };
+
+        let range_max = match range.end_bound() {
+            Bound::Excluded(value) => *value,
+            Bound::Included(value) => *value + 1,
+            Bound::Unbounded => self.target.match_length(),
+        };
+        if range_min >= range_max {
+            /* nothing to match against */
+            return None;
+        }
+
+        let match_offset = self.match_offset.clamp(range_min, range_max);
+        for match_offset in match_offset..range_max {
             self.save_stack.truncate(1);
             self.cursor_stack.truncate(0);
 
@@ -287,6 +328,7 @@ impl<'a, S: Stack<u32>, C: Stack<usize>> BinaryMatcher<'a, S, C> {
             return Some(save_stack);
         }
 
+        self.match_offset = range_max;
         None
     }
 }
@@ -377,6 +419,48 @@ mod test {
             "E9 $ { EE FF } '",
             &[0x00, 0xE9, 0x01, 0x00, 0x00, 0x00, 0xEE, 0xEE, 0xFF],
             Some(&[0x01, 0x06]),
+        );
+    }
+
+    #[test]
+    fn test_branch_behaviour() {
+        #[rustfmt::skip] 
+        test_single(
+            "
+            48 8B 83 r4
+            [14]
+            48 8B 88 r4
+            ([4] | [0])
+            48 89 91 F8 05 00 00
+            ",
+            &[
+                0x00, 
+                0x48, 0x8B, 0x83, 0x02, 0x00, 0x00, 0x00, 
+                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+                0x48, 0x8B, 0x88, 0x03, 0x00, 0x00, 0x00, 
+                0x48, 0x89, 0x91, 0xF8, 0x05, 0x00, 0x00,
+            ],
+            Some(&[0x01, 0x02, 0x03]),
+        );
+
+        #[rustfmt::skip] 
+        test_single(
+            "
+            48 8B 83 r4
+            [14]
+            48 8B 88 r4
+            ([4] | [0])
+            48 89 91 F8 05 00 00
+            ",
+            &[
+                0x00, 
+                0x48, 0x8B, 0x83, 0x02, 0x00, 0x00, 0x00, 
+                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
+                0x48, 0x8B, 0x88, 0x03, 0x00, 0x00, 0x00, 
+                0xFF, 0xFF, 0xFF, 0xFF,
+                0x48, 0x89, 0x91, 0xF8, 0x05, 0x00, 0x00,
+            ],
+            Some(&[0x01, 0x02, 0x03]),
         );
     }
 }
