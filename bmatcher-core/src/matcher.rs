@@ -530,7 +530,7 @@ mod test {
 
     #[test]
     fn test_branch_behaviour() {
-        #[rustfmt::skip] 
+        #[rustfmt::skip]
         test_single(
             "
             48 8B 83 r4
@@ -549,7 +549,7 @@ mod test {
             Some(&[0x01, 0x02, 0x03]),
         );
 
-        #[rustfmt::skip] 
+        #[rustfmt::skip]
         test_single(
             "
             48 8B 83 r4
