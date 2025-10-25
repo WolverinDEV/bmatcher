@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::borrow::Cow;
 use core::fmt::Debug;
 
 use crate::Atom;
@@ -49,58 +49,72 @@ pub trait BinaryPattern: Send + Sync + Debug {
     }
 }
 
-/// An implementation of the [BinaryPattern] interface that borrows the [Atom]s and byte sequence array.
+/// A flexible implementation of the [`BinaryPattern`] interface supporting both borrowed and owned data.
 ///
-/// This struct is primarily used alongside the [bmatcher_proc::pattern] macro to generate patterns at runtime.
-#[derive(Debug, Clone, Copy)]
-pub struct BorrowedBinaryPattern<'a> {
-    atoms: &'a [Atom],
-    byte_sequence: &'a [u8],
+/// This struct uses [`std::borrow::Cow`] for both the [`Atom`] array and the byte sequence,
+/// allowing it to either borrow data without allocation or own it when necessary.
+/// This design makes it suitable for both compile-time defined and runtime-parsed patterns.
+///
+/// # Example
+/// ```
+/// let atoms = &[Atom::Byte(0x90)];
+/// let bytes = &[0x90];
+///
+/// // Borrowed (no allocation)
+/// let borrowed = GenericBinaryPattern::new(atoms, bytes);
+///
+/// // Owned (allocating)
+/// let owned = GenericBinaryPattern::new(vec![Atom::Byte(0x90)], vec![0x90]);
+#[derive(Debug, Clone)]
+pub struct GenericBinaryPattern<'a> {
+    atoms: Cow<'a, [Atom]>,
+    byte_sequence: Cow<'a, [u8]>,
 }
 
-impl<'a> BorrowedBinaryPattern<'a> {
-    pub const fn new(atoms: &'a [Atom], byte_sequence: &'a [u8]) -> Self {
+impl<'a> GenericBinaryPattern<'a> {
+    /// Creates a new [`GenericBinaryPattern`] from borrowed or owned data.
+    ///
+    /// This constructor accepts any type that can be converted into a [`Cow`],
+    /// such as slices or vectors.  
+    /// Borrowed inputs (`&[Atom]`, `&[u8]`) avoid allocation, while owned inputs
+    /// (`Vec<Atom>`, `Vec<u8>`) store the data internally.
+    pub fn new(atoms: impl Into<Cow<'a, [Atom]>>, byte_sequence: impl Into<Cow<'a, [u8]>>) -> Self {
         Self {
-            atoms,
-            byte_sequence,
+            atoms: atoms.into(),
+            byte_sequence: byte_sequence.into(),
+        }
+    }
+
+    /// Creates a borrowed [`GenericBinaryPattern`] from static references.
+    ///
+    /// This constructor is `const` and does not perform any heap allocation.
+    /// It is ideal for defining patterns that reference constant or static data.
+    pub const fn new_const(atoms: &'a [Atom], byte_sequence: &'a [u8]) -> Self {
+        Self {
+            atoms: Cow::Borrowed(atoms),
+            byte_sequence: Cow::Borrowed(byte_sequence),
+        }
+    }
+
+    /// Converts the pattern into an owned version with a `'static` lifetime.
+    ///
+    /// Any borrowed data is cloned into owned memory, ensuring that the returned
+    /// pattern no longer depends on the original lifetimes.  
+    /// This is useful when the pattern needs to outlive temporary references.
+    pub fn into_owned(self) -> GenericBinaryPattern<'static> {
+        GenericBinaryPattern {
+            atoms: self.atoms.into_owned().into(),
+            byte_sequence: self.byte_sequence.into_owned().into(),
         }
     }
 }
 
-impl BinaryPattern for BorrowedBinaryPattern<'_> {
+impl BinaryPattern for GenericBinaryPattern<'_> {
     fn atoms(&self) -> &[Atom] {
-        self.atoms
+        self.atoms.as_ref()
     }
 
     fn byte_sequence(&self) -> &[u8] {
-        self.byte_sequence
-    }
-}
-
-/// An implementation of the [BinaryPattern] interface that allocates a `Vec` for the [Atom]s and the byte sequence.
-///
-/// This struct is primarily used with [crate::compiler::parse_pattern] to parse binary patterns at runtime.
-#[derive(Debug, Default)]
-pub struct OwnedBinaryPattern {
-    atoms: Vec<Atom>,
-    byte_sequence: Vec<u8>,
-}
-
-impl OwnedBinaryPattern {
-    pub fn new(atoms: Vec<Atom>, byte_sequence: Vec<u8>) -> Self {
-        Self {
-            byte_sequence,
-            atoms,
-        }
-    }
-}
-
-impl BinaryPattern for OwnedBinaryPattern {
-    fn byte_sequence(&self) -> &[u8] {
-        &self.byte_sequence
-    }
-
-    fn atoms(&self) -> &[Atom] {
-        &self.atoms
+        self.byte_sequence.as_ref()
     }
 }

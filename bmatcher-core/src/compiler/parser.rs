@@ -7,8 +7,8 @@ use super::{
     Token,
 };
 use crate::{
-    pattern::OwnedBinaryPattern,
     Atom,
+    GenericBinaryPattern,
     JumpType,
     ReadWidth,
 };
@@ -72,10 +72,10 @@ impl<'a> PatternParser<'a> {
         }
     }
 
-    pub fn parse(mut self) -> Result<OwnedBinaryPattern, PositionedError<ParseError>> {
+    pub fn parse(mut self) -> Result<GenericBinaryPattern<'static>, PositionedError<ParseError>> {
         /* parse until the end :) */
         let _ = self.parse_until(|_| false)?;
-        Ok(OwnedBinaryPattern::new(self.atoms, self.byte_sequence))
+        Ok(GenericBinaryPattern::new(self.atoms, self.byte_sequence))
     }
 
     fn parse_until(
@@ -417,7 +417,9 @@ impl<'a> PatternParser<'a> {
 }
 
 /// Parse the given string as pattern.
-pub fn parse_pattern(pattern: &str) -> Result<OwnedBinaryPattern, PositionedError<ParseError>> {
+pub fn parse_pattern(
+    pattern: &str,
+) -> Result<GenericBinaryPattern<'static>, PositionedError<ParseError>> {
     let parser = PatternParser::new(pattern);
     parser.parse()
 }

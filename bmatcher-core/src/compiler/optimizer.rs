@@ -1,11 +1,9 @@
 use alloc::vec::Vec;
 
 use crate::{
-    pattern::{
-        BinaryPattern,
-        OwnedBinaryPattern,
-    },
+    pattern::BinaryPattern,
     Atom,
+    GenericBinaryPattern,
 };
 
 struct Branch {
@@ -53,7 +51,7 @@ impl Optimizer {
         }
     }
 
-    pub fn optimize(mut self) -> OwnedBinaryPattern {
+    pub fn optimize(mut self) -> GenericBinaryPattern<'static> {
         while self.atoms.len() > 1 {
             if self.join_byte_sequences() {
                 continue;
@@ -77,7 +75,7 @@ impl Optimizer {
 
         self.fixup_branches();
 
-        OwnedBinaryPattern::new(self.atoms, self.bytes)
+        GenericBinaryPattern::new(self.atoms, self.bytes)
     }
 
     fn fixup_branches(&mut self) {
@@ -231,7 +229,7 @@ impl Optimizer {
 /// - Join ranged wildcards
 /// - Join fixed wildcards
 /// - Join fixed and ranged wildcards
-pub fn optimize_pattern(pattern: &dyn BinaryPattern) -> OwnedBinaryPattern {
+pub fn optimize_pattern(pattern: &dyn BinaryPattern) -> GenericBinaryPattern<'static> {
     let optimizer = Optimizer::new(pattern);
     optimizer.optimize()
 }
@@ -239,16 +237,14 @@ pub fn optimize_pattern(pattern: &dyn BinaryPattern) -> OwnedBinaryPattern {
 #[cfg(test)]
 mod test {
     use crate::{
-        pattern::{
-            BinaryPattern,
-            OwnedBinaryPattern,
-        },
+        pattern::BinaryPattern,
         Atom,
+        GenericBinaryPattern,
     };
 
     fn test_optimize(input: &[Atom], expected: &[Atom]) {
         println!("Testing: {:?}", input);
-        let result = super::optimize_pattern(&OwnedBinaryPattern::new(input.to_vec(), vec![]));
+        let result = super::optimize_pattern(&GenericBinaryPattern::new(input, &[]));
         assert_eq!(result.atoms(), expected);
         println!(" -> success");
     }

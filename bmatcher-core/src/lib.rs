@@ -26,6 +26,5 @@ pub use stack::{
 mod pattern;
 pub use pattern::{
     BinaryPattern,
-    BorrowedBinaryPattern,
-    OwnedBinaryPattern,
+    GenericBinaryPattern,
 };

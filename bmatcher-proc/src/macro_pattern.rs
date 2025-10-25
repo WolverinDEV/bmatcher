@@ -144,7 +144,7 @@ fn pattern_to_const_str(pattern: &dyn BinaryPattern) -> io::Result<String> {
     {
         let mut writer = Cursor::new(&mut result_buffer);
 
-        write!(&mut writer, "bmatcher::BorrowedBinaryPattern::new(")?;
+        write!(&mut writer, "bmatcher::GenericBinaryPattern::new_const(")?;
         emit_atoms(&mut writer, pattern.atoms())?;
         write!(&mut writer, ", ")?;
         emit_byte_sequence(&mut writer, pattern.byte_sequence())?;
