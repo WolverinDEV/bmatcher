@@ -1,7 +1,4 @@
-use bmatcher::{
-    pattern,
-    BinaryMatcher,
-};
+use bmatcher::pattern;
 
 fn main() {
     let data: &[u8] = &[0xE8, 0x00, 0x00, 0x00, 0x00, 0x48, 0x89, 0x04, 0x24, 0xE9];
@@ -22,7 +19,7 @@ fn main() {
     "
     );
 
-    let mut matcher = BinaryMatcher::new(&pattern, &data);
+    let mut matcher = bmatcher::execute(&data, &pattern);
     let Some(match_stack) = matcher.next_match() else {
         panic!("failed to find pattern");
     };

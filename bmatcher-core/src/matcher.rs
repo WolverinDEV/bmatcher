@@ -1,13 +1,6 @@
-use core::ops::{
-    Bound,
-    Range,
-    RangeBounds,
-};
-
 use crate::{
     Atom,
     BinaryPattern,
-    HeapStack,
     JumpType,
     MatchTarget,
     ReadWidth,
@@ -30,51 +23,44 @@ enum MatchHint {
 /// The `BinaryMatcher` is responsible for searching a [BinaryPattern] within a [MatchTarget].
 ///
 /// Use [`BinaryMatcher::next_match`] to iterate through matches of the specified pattern.
-pub struct BinaryMatcher<
-    'a,
-    S: Stack<u32> = StaticStack<0x10, u32>,
-    C: Stack<usize> = StaticStack<0x10, usize>,
-> {
+pub struct BinaryMatcher<'a, S: Stack<u32>, C: Stack<usize>> {
     pattern_atoms: &'a [Atom],
     pattern_byte_sequence: &'a [u8],
 
     target: &'a dyn MatchTarget,
 
-    match_offset: usize,
+    current_offset: usize,
+    match_length: usize,
 
     save_stack: S,
     cursor_stack: C,
 }
 
-impl<'a> BinaryMatcher<'a> {
-    /// Create a new BinaryMatcher instance with a statically allocated stack.
-    /// The default stack size is 0x10 for the save and cursor stack.
-    pub fn new(pattern: &'a dyn BinaryPattern, target: &'a dyn MatchTarget) -> Self {
-        Self::new_with_stack(
-            pattern,
-            target,
-            StaticStack::<0x10, u32>::new(),
-            StaticStack::<0x10, usize>::new(),
-        )
-    }
+/// Match a target against a binary pattern with a statically allocated stack.
+/// The default stack size is 0x10 for the save and cursor stack.
+pub fn execute<'a>(
+    target: &'a dyn MatchTarget,
+    pattern: &'a dyn BinaryPattern,
+) -> BinaryMatcher<'a, StaticStack<0x10, u32>, StaticStack<0x10, usize>> {
+    self::execute_with_stack(target, pattern, StaticStack::new(), StaticStack::new())
+}
 
-    /// Create a new BinaryMatcher instance with a heap allocated save and cursor stack
-    pub fn new_with_heap_stack(
-        pattern: &'a dyn BinaryPattern,
-        target: &'a dyn MatchTarget,
-    ) -> BinaryMatcher<'a, HeapStack<u32>, HeapStack<usize>> {
-        BinaryMatcher::new_with_stack(
-            pattern,
-            target,
-            HeapStack::<u32>::new(),
-            HeapStack::<usize>::new(),
-        )
-    }
+/// Match a target against a binary pattern and supply the save and cursor stacks on your own
+pub fn execute_with_stack<'a, S: Stack<u32>, C: Stack<usize>>(
+    target: &'a dyn MatchTarget,
+    pattern: &'a dyn BinaryPattern,
+    mut save_stack: S,
+    cursor_stack: C,
+) -> BinaryMatcher<'a, S, C> {
+    save_stack.truncate(0);
+    save_stack.push_value(0x00);
+
+    BinaryMatcher::new(pattern, target, save_stack, cursor_stack)
 }
 
 impl<'a, S: Stack<u32>, C: Stack<usize>> BinaryMatcher<'a, S, C> {
     /// Create a new binary matcher and supply the save and cursor stacks on your own
-    pub fn new_with_stack(
+    pub(crate) fn new(
         pattern: &'a dyn BinaryPattern,
         target: &'a dyn MatchTarget,
         mut save_stack: S,
@@ -92,7 +78,8 @@ impl<'a, S: Stack<u32>, C: Stack<usize>> BinaryMatcher<'a, S, C> {
             save_stack,
             cursor_stack,
 
-            match_offset: 0,
+            current_offset: 0,
+            match_length: target.match_length(),
         }
     }
 
@@ -297,7 +284,7 @@ impl<'a, S: Stack<u32>, C: Stack<usize>> BinaryMatcher<'a, S, C> {
 
     /// Generate a match hint for a proper search based of the first matching bytes
     /// given by the pattern. This algorithm assumes that thet MatchTarget is in continuous memory.
-    fn next_match_hint(&self, range: Range<usize>) -> MatchHint {
+    fn next_match_hint(&self) -> MatchHint {
         let mut fs_buffer = [0u8; 0x10];
         let mut fs_buffer_len = 0;
         for atom in self.pattern_atoms {
@@ -329,14 +316,17 @@ impl<'a, S: Stack<u32>, C: Stack<usize>> BinaryMatcher<'a, S, C> {
             return MatchHint::Unsupported;
         }
 
-        let Some(target_buffer) = self.target.subrange(range.start, range.end - range.start) else {
+        let Some(target_buffer) = self
+            .target
+            .subrange(self.current_offset, self.match_length - self.current_offset)
+        else {
             /* memory is not continuous */
             return MatchHint::Unsupported;
         };
 
         Self::fuzzy_search(&fs_buffer[0..fs_buffer_len], target_buffer)
             .map_or(MatchHint::NoMatches, |offset| {
-                MatchHint::MaybeMatch(range.start + offset)
+                MatchHint::MaybeMatch(self.current_offset + offset)
             })
     }
 
@@ -355,6 +345,26 @@ impl<'a, S: Stack<u32>, C: Stack<usize>> BinaryMatcher<'a, S, C> {
         None
     }
 
+    fn next_match_looped(&mut self) -> Option<&[u32]> {
+        while self.current_offset < self.match_length {
+            self.save_stack.truncate(1);
+            self.cursor_stack.truncate(0);
+
+            let match_offset = self.current_offset;
+            self.current_offset += 1;
+
+            if self.match_atoms(match_offset, self.pattern_atoms).is_none() {
+                continue;
+            }
+
+            let save_stack = self.save_stack.stack_mut();
+            save_stack[0] = match_offset as u32;
+            return Some(save_stack);
+        }
+
+        None
+    }
+
     /// Finds the next match for the associated [BinaryPattern] within the [MatchTarget].
     ///
     /// # Returns
@@ -363,34 +373,11 @@ impl<'a, S: Stack<u32>, C: Stack<usize>> BinaryMatcher<'a, S, C> {
     ///    Subsequent elements can be pushed using the `Atom::SaveCursor` atom or the `'` command within the binary pattern.
     /// - `None` if no further matches are available.
     pub fn next_match(&mut self) -> Option<&[u32]> {
-        self.next_match_within(..)
-    }
-
-    /// Finds the next match for the associated [BinaryPattern] within the [MatchTarget] within the given range.
-    /// The current match offset will be clamped into the given range.
-    pub fn next_match_within<R: RangeBounds<usize>>(&mut self, range: R) -> Option<&[u32]> {
-        let range_start = match range.start_bound() {
-            Bound::Excluded(value) => *value + 1,
-            Bound::Included(value) => *value,
-            Bound::Unbounded => 0,
-        };
-
-        let range_end = match range.end_bound() {
-            Bound::Excluded(value) => *value,
-            Bound::Included(value) => *value + 1,
-            Bound::Unbounded => self.target.match_length(),
-        };
-        if range_start >= range_end {
-            /* nothing to match against */
-            return None;
-        }
-
-        let mut match_offset = self.match_offset.clamp(range_start, range_end);
-        while match_offset < range_end {
-            match self.next_match_hint(match_offset..range_end) {
+        while self.current_offset < self.match_length {
+            match self.next_match_hint() {
                 MatchHint::Unsupported => {
                     /* fall back to matching against every position */
-                    return self.next_match_within_loop(match_offset..range_end);
+                    return self.next_match_looped();
                 }
                 MatchHint::NoMatches => {
                     /* no more matches */
@@ -401,47 +388,25 @@ impl<'a, S: Stack<u32>, C: Stack<usize>> BinaryMatcher<'a, S, C> {
                     self.save_stack.truncate(1);
                     self.cursor_stack.truncate(0);
 
-                    if self.match_atoms(hint_offset, self.pattern_atoms).is_some() {
-                        self.match_offset = hint_offset + 1;
-
-                        let save_stack = self.save_stack.stack_mut();
-                        save_stack[0] = hint_offset as u32;
-                        return Some(save_stack);
+                    self.current_offset = hint_offset + 1;
+                    if self.match_atoms(hint_offset, self.pattern_atoms).is_none() {
+                        /* Hint did not result in an actual match. Continue. */
+                        continue;
                     }
 
-                    match_offset = hint_offset + 1;
+                    let save_stack = self.save_stack.stack_mut();
+                    save_stack[0] = hint_offset as u32;
+                    return Some(save_stack);
                 }
             }
         }
 
-        self.match_offset = range_end;
-        None
-    }
-
-    fn next_match_within_loop(&mut self, range: Range<usize>) -> Option<&[u32]> {
-        for match_offset in range.clone() {
-            self.save_stack.truncate(1);
-            self.cursor_stack.truncate(0);
-
-            if self.match_atoms(match_offset, self.pattern_atoms).is_none() {
-                continue;
-            }
-
-            self.match_offset = match_offset + 1;
-
-            let save_stack = self.save_stack.stack_mut();
-            save_stack[0] = match_offset as u32;
-            return Some(save_stack);
-        }
-
-        self.match_offset = range.end;
         None
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::BinaryMatcher;
     use crate::{
         compiler::parse_pattern,
         BinaryPattern,
@@ -463,7 +428,7 @@ mod test {
         let pattern = parse_pattern(pattern).unwrap();
         println!("Atoms: {:?}", pattern.atoms());
 
-        let mut matcher = BinaryMatcher::new(&pattern, &data);
+        let mut matcher = super::execute(&data, &pattern);
         assert_eq!(matcher.next_match(), result);
     }
 

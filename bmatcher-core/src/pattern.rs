@@ -57,14 +57,15 @@ pub trait BinaryPattern: Send + Sync + Debug {
 ///
 /// # Example
 /// ```
-/// let atoms = &[Atom::Byte(0x90)];
+/// # use bmatcher_core::*;
+/// let atoms = &[Atom::ByteSequence { seq_start: 0x00, seq_end: 0x01 }];
 /// let bytes = &[0x90];
 ///
 /// // Borrowed (no allocation)
 /// let borrowed = GenericBinaryPattern::new(atoms, bytes);
 ///
 /// // Owned (allocating)
-/// let owned = GenericBinaryPattern::new(vec![Atom::Byte(0x90)], vec![0x90]);
+/// let owned = GenericBinaryPattern::new(vec![Atom::ByteSequence { seq_start: 0x00, seq_end: 0x01 }], vec![0x90]);
 #[derive(Debug, Clone)]
 pub struct GenericBinaryPattern<'a> {
     atoms: Cow<'a, [Atom]>,

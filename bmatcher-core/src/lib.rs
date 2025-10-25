@@ -14,7 +14,11 @@ mod target;
 pub use target::MatchTarget;
 
 mod matcher;
-pub use matcher::BinaryMatcher;
+pub use matcher::{
+    execute,
+    execute_with_stack,
+    BinaryMatcher,
+};
 
 mod stack;
 pub use stack::{

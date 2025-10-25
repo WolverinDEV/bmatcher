@@ -9,7 +9,10 @@ mod macro_pattern;
 /// An exhausive overview of the pattern syntax and operads can be found here: [bpattern::doc_pattern_syntax].
 ///
 /// # Example
-/// ```rust,ignore
+/// ```
+/// # use bmatcher_core as bmatcher;
+/// # use bmatcher_core::*;
+/// # use bmatcher_proc::*;
 /// static MY_PATTERN: &dyn BinaryPattern = &pattern!("01 02 ? 03 [4]");
 /// ```
 #[proc_macro]
