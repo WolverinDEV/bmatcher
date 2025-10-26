@@ -20,8 +20,8 @@ pub enum ParseError {
 
     MaskByteLenMismatch,
 
-    HexValueInvalid,
-    HexValueIncomplete,
+    BinaryValueInvalid,
+    BinaryValueIncomplete,
 
     GroupNotClosed,
     BlockNotClosed,
@@ -30,6 +30,44 @@ pub enum ParseError {
     RangeEndMustBeGraterThenStart,
 
     SequenceTooLarge,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum ByteSegment {
+    Value(u8),
+    Whildcard,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Radix {
+    Hex,
+    Bin,
+}
+
+impl Radix {
+    pub fn from_prefix(value: &str) -> Option<Self> {
+        if value.starts_with("0b") {
+            Some(Self::Bin)
+        } else if value.starts_with("0x") {
+            Some(Self::Hex)
+        } else {
+            None
+        }
+    }
+
+    pub fn prefix(&self) -> &'static str {
+        match self {
+            Self::Bin => "0b",
+            Self::Hex => "0x",
+        }
+    }
+
+    pub fn segment_bit_width(&self) -> usize {
+        match self {
+            Self::Bin => 1,
+            Self::Hex => 4,
+        }
+    }
 }
 
 pub struct PatternParser<'a> {
@@ -72,6 +110,23 @@ impl<'a> PatternParser<'a> {
         }
     }
 
+    fn bytes_commit(
+        &mut self,
+        sequence_start: usize,
+    ) -> Result<(u16, u16), PositionedError<ParseError>> {
+        assert!(sequence_start <= self.byte_sequence.len());
+
+        let bytes_end = self.byte_sequence.len();
+        if sequence_start > u16::MAX as usize || bytes_end > u16::MAX as usize {
+            return Err(PositionedError::new(
+                self.lexer.token_range(),
+                ParseError::SequenceTooLarge,
+            ));
+        }
+
+        Ok((sequence_start as u16, bytes_end as u16))
+    }
+
     pub fn parse(mut self) -> Result<GenericBinaryPattern<'static>, PositionedError<ParseError>> {
         /* parse until the end :) */
         let _ = self.parse_until(|_| false)?;
@@ -88,7 +143,7 @@ impl<'a> PatternParser<'a> {
             }
 
             match token {
-                Token::Text(_) => self.parse_byte_sequence()?,
+                Token::Text(_) => self.parse_bytes()?,
                 Token::Whildcard => self.parse_wildcard()?,
 
                 Token::PositionSave => self.parse_position_save()?,
@@ -116,7 +171,7 @@ impl<'a> PatternParser<'a> {
         Ok(false)
     }
 
-    fn parse_bytes(&mut self) -> Result<(u16, u16), PositionedError<ParseError>> {
+    fn parse_bytes_with_radix(&mut self, radix: Radix) -> Result<(), PositionedError<ParseError>> {
         let Token::Text(value) = self.pop_token()? else {
             return Err(PositionedError::new(
                 self.lexer.token_range(),
@@ -124,82 +179,99 @@ impl<'a> PatternParser<'a> {
             ));
         };
 
-        let token_range = self.lexer.token_range();
-        let bytes_start = self.byte_sequence.len();
-        let mut values = value.char_indices();
-        while let Some((upper_index, upper)) = values.next() {
-            let Some((lower_index, lower)) = values.next() else {
-                /* byte sequence must always be a multiple of 2 */
+        let radix_prefix = radix.prefix();
+        let (chars_token_index, chars) = if value.starts_with(radix_prefix) {
+            (
+                self.lexer.token_range().start + radix_prefix.len(),
+                value[radix_prefix.len()..].char_indices(),
+            )
+        } else {
+            (self.lexer.token_range().start, value.char_indices())
+        };
+
+        let mut byte_segments = Vec::new();
+        for (char_index, c) in chars {
+            if c == '?' {
+                byte_segments.push(ByteSegment::Whildcard);
+                continue;
+            }
+
+            let Some(value) = c.to_digit(1 << radix.segment_bit_width()) else {
                 return Err(PositionedError::new(
-                    token_range.start + upper_index..token_range.start + upper_index + 1,
-                    ParseError::HexValueIncomplete,
+                    chars_token_index + char_index..chars_token_index + char_index + 1,
+                    ParseError::BinaryValueInvalid,
                 ));
             };
 
-            let Some(upper) = upper.to_digit(16) else {
-                return Err(if upper_index == 0 {
-                    /* it's not hex, it's unknown token :) */
-                    PositionedError::new(token_range, ParseError::UnexpectedToken)
-                } else {
-                    PositionedError::new(
-                        token_range.start + upper_index..token_range.start + lower_index + 1,
-                        ParseError::HexValueInvalid,
-                    )
-                });
-            };
-
-            let Some(lower) = lower.to_digit(16) else {
-                return Err(PositionedError::new(
-                    token_range.start + upper_index..token_range.start + lower_index + 1,
-                    ParseError::HexValueInvalid,
-                ));
-            };
-
-            self.byte_sequence.push((upper as u8) << 4 | (lower as u8));
+            byte_segments.push(ByteSegment::Value(value as u8));
         }
 
-        let bytes_end = self.byte_sequence.len();
-        if bytes_start > u16::MAX as usize || bytes_end > u16::MAX as usize {
+        let byte_chunk_size = 8 / radix.segment_bit_width();
+        if byte_segments.len() % byte_chunk_size > 0 {
             return Err(PositionedError::new(
-                token_range,
-                ParseError::SequenceTooLarge,
+                self.lexer.token_range(),
+                ParseError::BinaryValueIncomplete,
             ));
         }
 
-        Ok((bytes_start as u16, bytes_end as u16))
-    }
-
-    fn parse_byte_sequence(&mut self) -> Result<(), PositionedError<ParseError>> {
-        let (bytes_start, bytes_end) = self.parse_bytes()?;
-
-        if let Some(Token::Mask) = self.peek_token() {
-            /* masked byte sequence */
-            let _ = self.pop_token()?;
-
-            let (mask_start, mask_end) = self.parse_bytes()?;
-            let mask_length = mask_end - mask_start;
-            let bytes_length = bytes_end - bytes_start;
-            if mask_length != bytes_length {
-                return Err(PositionedError::new(
-                    self.lexer.token_range(),
-                    ParseError::MaskByteLenMismatch,
-                ));
+        let bytes_start = self.byte_sequence.len();
+        for chunk in byte_segments.chunks_exact(byte_chunk_size) {
+            let mut byte = 0;
+            for segment in chunk {
+                byte <<= radix.segment_bit_width();
+                if let ByteSegment::Value(bits) = *segment {
+                    byte |= bits;
+                }
             }
 
-            self.atoms.push(Atom::ByteSequenceMasked {
-                seq_start: bytes_start,
-                mask_start,
-                len: bytes_length,
-            });
-        } else {
-            /* normal byte sequence */
-            self.atoms.push(Atom::ByteSequence {
-                seq_start: bytes_start,
-                seq_end: bytes_end,
-            });
+            self.byte_sequence.push(byte);
         }
 
+        let (seq_start, seq_end) = self.bytes_commit(bytes_start)?;
+        if byte_segments
+            .iter()
+            .any(|seg| matches!(seg, ByteSegment::Whildcard))
+        {
+            let bytes_mask_start = self.byte_sequence.len();
+            for chunk in byte_segments.chunks_exact(byte_chunk_size) {
+                let mut byte = 0;
+                for segment in chunk {
+                    byte <<= radix.segment_bit_width();
+                    match segment {
+                        ByteSegment::Value(_) => {
+                            byte |= (1 << radix.segment_bit_width()) - 1;
+                        }
+                        ByteSegment::Whildcard => {
+                            byte |= 0;
+                        }
+                    }
+                }
+
+                self.byte_sequence.push(byte);
+            }
+
+            let (mask_start, _mask_end) = self.bytes_commit(bytes_mask_start)?;
+            self.atoms.push(Atom::ByteSequenceMasked {
+                seq_start,
+                mask_start,
+                len: (byte_segments.len() / byte_chunk_size) as u16,
+            });
+        } else {
+            self.atoms.push(Atom::ByteSequence { seq_start, seq_end });
+        }
         Ok(())
+    }
+
+    fn parse_bytes(&mut self) -> Result<(), PositionedError<ParseError>> {
+        let Some(Token::Text(value)) = self.peek_token() else {
+            return Err(PositionedError::new(
+                self.lexer.token_range(),
+                ParseError::UnexpectedToken,
+            ));
+        };
+
+        let radix = Radix::from_prefix(&value).unwrap_or(Radix::Hex);
+        self.parse_bytes_with_radix(radix)
     }
 
     fn parse_position_save(&mut self) -> Result<(), PositionedError<ParseError>> {
@@ -438,7 +510,36 @@ mod test {
     };
 
     #[test]
-    fn test_byte_sequence() {
+    fn test_byte_sequence_bin() {
+        {
+            let parser = PatternParser::new("0b10011100");
+            let result = parser.parse().unwrap();
+            assert_eq!(
+                result.atoms(),
+                &[Atom::ByteSequence {
+                    seq_start: 0,
+                    seq_end: 1
+                },]
+            );
+            assert_eq!(result.byte_sequence(), &[0b10011100]);
+        }
+
+        {
+            let parser = PatternParser::new("0b1001110011110000");
+            let result = parser.parse().unwrap();
+            assert_eq!(
+                result.atoms(),
+                &[Atom::ByteSequence {
+                    seq_start: 0,
+                    seq_end: 2
+                },]
+            );
+            assert_eq!(result.byte_sequence(), &[0b10011100, 0b11110000]);
+        }
+    }
+
+    #[test]
+    fn test_byte_sequence_hex() {
         {
             let parser = PatternParser::new("FF 00 12");
             let result = parser.parse().unwrap();
@@ -482,11 +583,24 @@ mod test {
         }
 
         {
+            let parser = PatternParser::new("0xDEADBEEF");
+            let result = parser.parse().unwrap();
+            assert_eq!(
+                result.atoms(),
+                &[Atom::ByteSequence {
+                    seq_start: 0,
+                    seq_end: 4
+                },]
+            );
+            assert_eq!(result.byte_sequence(), &[0xDE, 0xAD, 0xBE, 0xEF]);
+        }
+
+        {
             let parser = PatternParser::new("FF0");
             let result = parser.parse().unwrap_err();
             assert_eq!(
                 &result,
-                &PositionedError::new(2..3, ParseError::HexValueIncomplete)
+                &PositionedError::new(0..3, ParseError::BinaryValueIncomplete)
             );
         }
 
@@ -495,15 +609,15 @@ mod test {
             let result = parser.parse().unwrap_err();
             assert_eq!(
                 &result,
-                &PositionedError::new(0..2, ParseError::HexValueInvalid)
+                &PositionedError::new(1..2, ParseError::BinaryValueInvalid)
             );
         }
     }
 
     #[test]
-    fn test_byte_sequence_mask() {
+    fn test_byte_sequence_mask_hex() {
         {
-            let parser = PatternParser::new("FF & F0");
+            let parser = PatternParser::new("A?");
             let result = parser.parse().unwrap();
             assert_eq!(
                 result.atoms(),
@@ -513,11 +627,11 @@ mod test {
                     len: 1
                 }]
             );
-            assert_eq!(result.byte_sequence(), &[0xFF, 0xF0]);
+            assert_eq!(result.byte_sequence(), &[0xA0, 0xF0]);
         }
 
         {
-            let parser = PatternParser::new("FFEE & F0F0");
+            let parser = PatternParser::new("F?E?");
             let result = parser.parse().unwrap();
             assert_eq!(
                 result.atoms(),
@@ -527,15 +641,102 @@ mod test {
                     len: 2
                 }]
             );
-            assert_eq!(result.byte_sequence(), &[0xFF, 0xEE, 0xF0, 0xF0]);
+            assert_eq!(result.byte_sequence(), &[0xF0, 0xE0, 0xF0, 0xF0]);
+        }
+    }
+
+    #[test]
+    fn test_byte_sequence_mask_bin() {
+        {
+            let parser = PatternParser::new("0b100??001");
+            let result = parser.parse().unwrap();
+            assert_eq!(
+                result.atoms(),
+                &[Atom::ByteSequenceMasked {
+                    seq_start: 0,
+                    mask_start: 1,
+                    len: 1
+                }]
+            );
+            assert_eq!(result.byte_sequence(), &[0x81, 0xE7]);
         }
 
         {
-            let parser = PatternParser::new("FFFF & FF");
+            let parser = PatternParser::new("0b100??001?????111");
+            let result = parser.parse().unwrap();
+            assert_eq!(
+                result.atoms(),
+                &[Atom::ByteSequenceMasked {
+                    seq_start: 0,
+                    mask_start: 2,
+                    len: 2
+                }]
+            );
+            assert_eq!(result.byte_sequence(), &[0x81, 0x07, 0xE7, 0x07]);
+        }
+    }
+
+    #[test]
+    fn test_byte_wildcard() {
+        {
+            let parser = PatternParser::new("?");
+            let result = parser.parse().unwrap();
+            assert_eq!(result.atoms(), &[Atom::WildcardFixed(1),]);
+            assert_eq!(result.byte_sequence(), &[]);
+        }
+
+        {
+            let parser = PatternParser::new("AB ? CD");
+            let result = parser.parse().unwrap();
+            assert_eq!(
+                result.atoms(),
+                &[
+                    Atom::ByteSequence {
+                        seq_start: 0x00,
+                        seq_end: 0x01
+                    },
+                    Atom::WildcardFixed(1),
+                    Atom::ByteSequence {
+                        seq_start: 0x01,
+                        seq_end: 0x02
+                    }
+                ]
+            );
+            assert_eq!(result.byte_sequence(), &[0xAB, 0xCD]);
+        }
+
+        /* double wildcards are being interpreted as nibbles */
+        {
+            let parser = PatternParser::new("AB ?? CD");
+            let result = parser.parse().unwrap();
+            assert_eq!(
+                result.atoms(),
+                &[
+                    Atom::ByteSequence {
+                        seq_start: 0x00,
+                        seq_end: 0x01
+                    },
+                    Atom::ByteSequenceMasked {
+                        seq_start: 0x01,
+                        mask_start: 0x02,
+                        len: 0x01
+                    },
+                    Atom::ByteSequence {
+                        seq_start: 0x03,
+                        seq_end: 0x04
+                    }
+                ]
+            );
+            assert_eq!(result.byte_sequence(), &[0xAB, 0x00, 0x00, 0xCD]);
+        }
+
+        /* this is just invalid */
+        {
+            let parser = PatternParser::new("AB ??? CD");
             let result = parser.parse().unwrap_err();
             assert_eq!(
                 &result,
-                &PositionedError::new(7..9, ParseError::MaskByteLenMismatch)
+                &PositionedError::new(3..6, ParseError::BinaryValueIncomplete)
             );
         }
     }

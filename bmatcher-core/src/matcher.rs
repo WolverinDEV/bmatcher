@@ -442,7 +442,7 @@ mod test {
 
     #[test]
     fn test_binary_mask() {
-        test_single("B7682D & FFFEFF", DATA, Some(&[0x41]));
+        test_single("0xB76?2D", DATA, Some(&[0x41]));
     }
 
     #[test]

@@ -11,9 +11,6 @@ pub enum Token<'a> {
     /// A one byte wildcard token: "?"
     Whildcard,
 
-    /// A mask token: "&"
-    Mask,
-
     /// A range open token: "["
     RangeOpen,
     /// A range token: "-"
@@ -75,9 +72,6 @@ impl<'a> Lexer<'a> {
     /// Get the token from a specific char if the character is causing a new token
     fn char_to_token(&self, value: char) -> Option<Token<'a>> {
         Some(match value {
-            '?' => Token::Whildcard,
-            '&' => Token::Mask,
-
             '{' => Token::BlockOpen,
             '}' => Token::BlockClose,
 
@@ -166,6 +160,13 @@ impl<'a> Lexer<'a> {
                 }
             }
 
+            if token == '?' {
+                let next = self.iter.clone().next().map_or(' ', |(_, v)| v);
+                if next == ' ' {
+                    return Some(Token::Whildcard);
+                }
+            }
+
             if let Some(token) = self.char_to_token(token) {
                 return Some(token);
             }
@@ -177,7 +178,7 @@ impl<'a> Lexer<'a> {
                 };
 
                 if token.is_whitespace() || self.char_to_token(token).is_some() {
-                    /* Break at a space or a toke which breaks the "text" token */
+                    /* whitespace and tokens always break the text token */
                     break position;
                 }
 

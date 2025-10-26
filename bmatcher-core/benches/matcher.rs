@@ -1,8 +1,5 @@
-use bmatcher_core::{
-    compiler::{
-        self,
-    },
-    BinaryMatcher,
+use bmatcher_core::compiler::{
+    self,
 };
 use criterion::{
     black_box,
@@ -38,7 +35,7 @@ pub fn simple_binary_pattern(instance: &mut Criterion) {
                     let buffer = buffer.as_slice();
                     bencher.iter(|| {
                         let mut matcher =
-                            BinaryMatcher::new(black_box(&pattern), black_box(&buffer));
+                            bmatcher_core::execute(black_box(&buffer), black_box(&pattern));
 
                         #[allow(clippy::never_loop)]
                         while let Some(_match) = matcher.next_match() {
@@ -70,7 +67,7 @@ pub fn simple_binary_pattern(instance: &mut Criterion) {
                     let buffer = buffer.as_slice();
                     bencher.iter(|| {
                         let mut matcher =
-                            BinaryMatcher::new(black_box(&pattern), black_box(&buffer));
+                            bmatcher_core::execute(black_box(&buffer), black_box(&pattern));
 
                         #[allow(clippy::never_loop)]
                         while let Some(_match) = matcher.next_match() {
