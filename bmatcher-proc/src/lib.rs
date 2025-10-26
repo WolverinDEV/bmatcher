@@ -5,8 +5,8 @@ extern crate proc_macro;
 
 mod macro_pattern;
 
-/// Parse a binary pattern and generate an instance of [bmatcher::BorrowedBinaryPattern] at compile time.  
-/// An exhausive overview of the pattern syntax and operads can be found here: [bpattern::doc_pattern_syntax].
+/// Parse a binary pattern and generate an instance of <a href="struct.GenericBinaryPattern.html">GenericBinaryPattern</a> at compile time.  
+/// An exhausive overview of the pattern syntax and operads can be found here: <a href="index.html">bmatcher</a>.
 ///
 /// # Example
 /// ```

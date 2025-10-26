@@ -6,44 +6,53 @@ Below, all available operators are defined and explained.
 
 # Available Operators
 
-## Binary Data (`<hex>`)
+## Binary Data
 
-The **Binary Data** operator is the most fundamental operator. It performs a byte-by-byte comparison of the input with the specified hexadecimal values. Each byte must be written in hexadecimal format and padded to two digits.
-
-The following example searches for the hexadecimal sequence `0xFF 0xDE 0x01 0x23` in the target:
+The **Binary Data** operator is the most fundamental pattern operator.
+It performs a **byte-by-byte comparison** between the input and the specified values.
+Each byte must be written in **hexadecimal** or **binary** form and padded to two (hex) or eight (binary) digits.
+For example, the following patterns all search for the hexadecimal sequence 0xFF 0xDE 0x01 0x23:
 
 ```pattern
 FF DE 01 23
-```
-
-Spaces between the hexadecimal values are optional. The following example is equivalent to the one above:
-
-```pattern
+// or, since spaces are optional
 FFDE0123
+// or, using an optional hexadecimal prefix
+0xFFDE0123
 ```
 
-## Masked Binary Data (`<hex> & <hex>`)
-
-The **Masked Binary Data** operator is extends the Binary Data Operator. It performs a byte-by-byte comparison of the input with the specified hexadecimal values under the given mask (binary and). Each byte and mask entry must be written in hexadecimal format and padded to two digits.
-
-The following example searches for the hexadecimal sequence `0xFF 0xEE` wit hthe mask `0xFF 0x0F` in the target:
-
+To specify a binary sequence instead, prefix each value with `0b`:
 ```pattern
-FFEE & FF0F
+0b11111110 0b00100011
+// or equivalently
+0b111111100b00100011
 ```
-
-In opposition to the Binary Data operator, spaces are not allowed in the binary and the mask data.
 
 ## Byte Wildcard (`?`)
 
-The Byte Wildcard operator (`?`) matches any byte value, serving as the opposite of the Binary Data operator.
+The **Byte Wildcard** operator (?) matches any single byte value, effectively serving as the opposite of the Binary Data operator.
+It is commonly used to represent unknown or variable bytes within a pattern. 
 For example, the following pattern matches any 32-bit relative call instruction (`E8 rel32`) followed by a return (`C3`) in x86 assembly:
 
 ```pattern
 E8 ? ? ? ? C3
 ```
 
-Note that a single question mark matches a whole byte.
+Note: Each Byte Wildcard operator **must** be prefixed and followed by a space.
+`E8 ? ? ? ? C3` is **not equal** to `E8????C3`
+
+## Bitwise Wildcard (`?`)
+
+The **Bitwise Wildcard** allows for partial matching on the bit or nibble level.
+Wildcards can be used directly within binary or hexadecimal literals (without spaces) and act as placeholders for individual nibbles (in hex) or bits (in binary).
+This enables fine-grained matching where only specific parts of a byte are relevant.
+For example, the following pattern searches for the hexadecimal sequence `0xFF 0xEE` with the mask `0xFF 0x0F`:
+```pattern
+FF?E
+```
+  
+Note: A Byte Wildcard can also be written using double wildcards for clarity, such as `E8 ?? ?? ?? ?? C3`.
+Each `??` pair representing one byte value
 
 ## Range Wildcard (`[<min>-<max>]` / `[<count>]`)
 

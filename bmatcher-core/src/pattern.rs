@@ -51,7 +51,7 @@ pub trait BinaryPattern: Send + Sync + Debug {
 
 /// A flexible implementation of the [`BinaryPattern`] interface supporting both borrowed and owned data.
 ///
-/// This struct uses [`std::borrow::Cow`] for both the [`Atom`] array and the byte sequence,
+/// This struct uses [`alloc::borrow::Cow`] for both the [`Atom`] array and the byte sequence,
 /// allowing it to either borrow data without allocation or own it when necessary.
 /// This design makes it suitable for both compile-time defined and runtime-parsed patterns.
 ///
