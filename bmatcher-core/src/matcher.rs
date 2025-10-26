@@ -9,7 +9,7 @@ use crate::{
 };
 
 /// Hinting where the pattern might be matching the target
-enum MatchHint {
+pub enum MatchHint {
     /// A match hint could not be generated
     Unsupported,
 
@@ -316,33 +316,8 @@ impl<'a, S: Stack<u32>, C: Stack<usize>> BinaryMatcher<'a, S, C> {
             return MatchHint::Unsupported;
         }
 
-        let Some(target_buffer) = self
-            .target
-            .subrange(self.current_offset, self.match_length - self.current_offset)
-        else {
-            /* memory is not continuous */
-            return MatchHint::Unsupported;
-        };
-
-        Self::fuzzy_search(&fs_buffer[0..fs_buffer_len], target_buffer)
-            .map_or(MatchHint::NoMatches, |offset| {
-                MatchHint::MaybeMatch(self.current_offset + offset)
-            })
-    }
-
-    fn fuzzy_search(needle: &[u8], haystack: &[u8]) -> Option<usize> {
-        for offset in 0..(haystack.len() - needle.len()) {
-            let is_match = needle
-                .iter()
-                .zip(&haystack[offset..offset + needle.len()])
-                .all(|(a, b)| *a == *b);
-
-            if is_match {
-                return Some(offset);
-            }
-        }
-
-        None
+        self.target
+            .match_hint(self.current_offset, &fs_buffer[0..fs_buffer_len])
     }
 
     fn next_match_looped(&mut self) -> Option<&[u32]> {

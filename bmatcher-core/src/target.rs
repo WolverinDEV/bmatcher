@@ -1,3 +1,5 @@
+use crate::matcher::MatchHint;
+
 /// A trait for targets that can be matched against a binary pattern.
 ///
 /// Implementing this trait allows matching against data sources that may not be
@@ -8,6 +10,10 @@
 pub trait MatchTarget {
     /// Returns the total length of the data which will be scaned when matching a binary pattern.
     fn match_length(&self) -> usize;
+
+    /// Return a match hint based of the given `byte_sequence` which will be used to evaluate
+    /// the full pattern at that offset.
+    fn match_hint(&self, offset: usize, byte_sequence: &[u8]) -> MatchHint;
 
     /// Retrieves a subrange of the data, starting at the specified offset and spanning the given number of bytes.
     ///
@@ -32,6 +38,25 @@ pub trait MatchTarget {
 impl MatchTarget for &[u8] {
     fn match_length(&self) -> usize {
         self.len()
+    }
+
+    fn match_hint(&self, offset: usize, byte_sequence: &[u8]) -> MatchHint {
+        if offset + byte_sequence.len() >= self.len() {
+            return MatchHint::NoMatches;
+        }
+
+        for offset in offset..(self.len() - byte_sequence.len()) {
+            let is_match = byte_sequence
+                .iter()
+                .zip(&self[offset..offset + byte_sequence.len()])
+                .all(|(a, b)| *a == *b);
+
+            if is_match {
+                return MatchHint::MaybeMatch(offset);
+            }
+        }
+
+        MatchHint::NoMatches
     }
 
     fn subrange(&self, offset: usize, byte_count: usize) -> Option<&[u8]> {
