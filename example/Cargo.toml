@@ -6,4 +6,4 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-bmatcher = { version = "=0.3.2", path = "../bmatcher" }
+bmatcher = { version = "=0.3.3", path = "../bmatcher" }
