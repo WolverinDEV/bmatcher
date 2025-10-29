@@ -307,7 +307,6 @@ impl<'a, S: Stack<u32>, C: Stack<usize>> BinaryMatcher<'a, S, C> {
                 Atom::CursorPush => continue,
                 Atom::SaveConstant(_) => continue,
                 Atom::SaveCursor => continue,
-                Atom::Read(_) => continue,
                 _ => break,
             }
         }
