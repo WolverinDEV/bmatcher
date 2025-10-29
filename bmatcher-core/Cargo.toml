@@ -11,6 +11,7 @@ bench = false
 
 [dependencies]
 thiserror-no-std = "2.0.2"
+pelite = { version = ">=0.8", optional = true, default-features = false }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
@@ -19,3 +20,6 @@ rand = "0.8.5"
 [[bench]]
 name = "matcher"
 harness = false
+
+[features]
+pelite = ["dep:pelite"]

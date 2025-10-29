@@ -13,6 +13,9 @@ pub use atom::{
 mod target;
 pub use target::MatchTarget;
 
+#[cfg(feature = "pelite")]
+mod target_pelite;
+
 mod matcher;
 pub use matcher::{
     execute,

@@ -11,3 +11,7 @@ readme = "../README.MD"
 [dependencies]
 bmatcher-core = { version = "=0.3.2", path = "../bmatcher-core" }
 bmatcher-proc = { version = "=0.3.2", path = "../bmatcher-proc" }
+
+[features]
+default = []
+pelite = ["bmatcher-core/pelite"]
