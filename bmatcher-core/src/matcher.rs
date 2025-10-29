@@ -9,6 +9,7 @@ use crate::{
 };
 
 /// Hinting where the pattern might be matching the target
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MatchHint {
     /// A match hint could not be generated
     Unsupported,
