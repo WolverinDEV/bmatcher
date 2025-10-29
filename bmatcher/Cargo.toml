@@ -1,6 +1,6 @@
 [package]
 name = "bmatcher"
-version = "0.3.1"
+version = "0.3.2"
 authors.workspace = true
 edition.workspace = true
 description.workspace = true
@@ -9,5 +9,5 @@ repository.workspace = true
 readme = "../README.MD"
 
 [dependencies]
-bmatcher-core = { version = "=0.3.1", path = "../bmatcher-core" }
-bmatcher-proc = { version = "=0.3.1", path = "../bmatcher-proc" }
+bmatcher-core = { version = "=0.3.2", path = "../bmatcher-core" }
+bmatcher-proc = { version = "=0.3.2", path = "../bmatcher-proc" }
