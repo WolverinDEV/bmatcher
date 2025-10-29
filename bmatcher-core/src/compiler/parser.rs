@@ -742,6 +742,17 @@ mod test {
     }
 
     #[test]
+    fn test_byte_wildcard_nl() {
+        let parser = PatternParser::new("?\n?");
+        let result = parser.parse().unwrap();
+        assert_eq!(
+            result.atoms(),
+            &[Atom::WildcardFixed(1), Atom::WildcardFixed(1),]
+        );
+        assert_eq!(result.byte_sequence(), &[]);
+    }
+
+    #[test]
     fn test_jump() {
         {
             let parser = PatternParser::new("%$* FF * % $");

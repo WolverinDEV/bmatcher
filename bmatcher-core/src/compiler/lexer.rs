@@ -162,7 +162,7 @@ impl<'a> Lexer<'a> {
 
             if token == '?' {
                 let next = self.iter.clone().next().map_or(' ', |(_, v)| v);
-                if next == ' ' {
+                if next == ' ' || next == '\n' {
                     return Some(Token::Whildcard);
                 }
             }
