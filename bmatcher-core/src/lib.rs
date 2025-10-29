@@ -18,6 +18,7 @@ pub use matcher::{
     execute,
     execute_with_stack,
     BinaryMatcher,
+    MatchHint,
 };
 
 mod stack;
