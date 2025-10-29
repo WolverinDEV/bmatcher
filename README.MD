@@ -6,7 +6,8 @@
 [github build status]: https://github.com/WolverinDEV/bmatcher/actions/workflows/rust.yml/badge.svg?branch=master
 [actions]: https://github.com/WolverinDEV/bmatcher/actions/workflows/rust.yml
 
-`bmatcher` is a flexible and efficient binary pattern matching library designed to help you search and match binary data.
+`bmatcher` is a flexible and efficient binary pattern matching library designed to help you search and match binary data. 
+It is `no_std` compatible by default, making it suitable for embedded, kernel, or hypervisor environments where standard library usage is restricted.
 
 ## Motivation
 
