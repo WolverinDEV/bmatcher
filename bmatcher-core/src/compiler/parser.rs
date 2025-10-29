@@ -1,6 +1,8 @@
 use alloc::vec::Vec;
 use core::num::ParseIntError;
 
+use thiserror_no_std::Error;
+
 use super::{
     Lexer,
     PositionedError,
@@ -13,22 +15,33 @@ use crate::{
     ReadWidth,
 };
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Error, PartialEq, Eq, Clone)]
 pub enum ParseError {
+    #[error("unexpected token encountered")]
     UnexpectedToken,
+
+    #[error("unexpected end of input")]
     UnexpectedEnd,
 
-    MaskByteLenMismatch,
-
+    #[error("invalid binary value")]
     BinaryValueInvalid,
+
+    #[error("incomplete binary value; bits missing")]
     BinaryValueIncomplete,
 
+    #[error("group not properly closed (missing ')')")]
     GroupNotClosed,
+
+    #[error("block not properly closed (missing '}}')")]
     BlockNotClosed,
 
+    #[error("invalid range bound: {0}")]
     RangeBoundInvalid(ParseIntError),
+
+    #[error("range end must be greater than start")]
     RangeEndMustBeGraterThenStart,
 
+    #[error("sequence exceeds maximum allowed size")]
     SequenceTooLarge,
 }
 

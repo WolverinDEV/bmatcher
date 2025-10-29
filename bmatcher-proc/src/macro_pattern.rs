@@ -163,7 +163,7 @@ pub fn pattern(item: TokenStream) -> Result<TokenStream> {
                 .token()
                 .subspan(error.position().start + 1..error.position().end + 1)
                 .unwrap_or(pattern_str.span());
-            return Err(Error::new(error_span, format!("{:?}", error.inner())));
+            return Err(Error::new(error_span, format!("{}", error.inner())));
         }
     };
 
